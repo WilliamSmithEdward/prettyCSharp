@@ -11,8 +11,14 @@ file and reprints the whole file in one canonical layout. It does not report lin
 | Python | 3.10+ |
 | Parser | tree-sitter-c-sharp through the py-tree-sitter bindings. No .NET dependency. |
 | Model | Prettier-style reprinter only. No rule engine, no diagnostics. |
-| Inputs | A `.cs` file, a folder, a `.csproj` (the files it compiles), or a `.sln` |
-| Safety | Every output is reparsed and its tree compared to the input's, ignoring whitespace and the rewrites listed below. A mismatch leaves the file untouched and reports an error. Files that already contain syntax errors are skipped with a message. |
+| Inputs | A `.cs` file, a folder, a `.csproj` (the files it compiles), a `.sln` or `.slnx`, or stdin |
+| Safety | Every output is reparsed and its tree compared to the input's, ignoring whitespace and the rewrites listed below; the comments must hold the same words. A mismatch leaves the file untouched and reports an error. Files that already contain syntax errors are skipped with a message. |
+
+The printer is a Prettier-style layout engine (`doc.py`): handlers turn each
+syntax node into groups, indents and line breaks, and the engine fits them to
+the line width. Comments are attached to tokens, so a handler that rearranges
+tokens cannot drop one. String literals of every kind are single tokens
+printed exactly as written.
 
 ## Command line
 
@@ -35,6 +41,12 @@ prettycsharp diff Order.cs
 | `diff` | `--diff` | Print a unified diff, change nothing |
 | (none) | (none) | Print the formatted file to stdout |
 
+`-` formats stdin to stdout. `-o KEY=VALUE` sets one setting, `--config FILE`
+names the settings file, `--no-ignore` turns off `.gitignore` and
+`.prettycsharpignore`, and `--stdin-filepath` names the path stdin stands for.
+Exit status is 0 when nothing changes, 1 when `check` or `diff` finds work,
+and 2 on any error. Writes go to a temporary file swapped in afterwards.
+
 ## Configuration
 
 Settings are resolved per source file, highest precedence first:
@@ -45,8 +57,10 @@ Settings are resolved per source file, highest precedence first:
 3. `.editorconfig`, standard keys only (mapping below)
 4. Built-in defaults (the tables below)
 
-Every behavior with a setting name below can be overridden. The defaults are one person's
-style, and any team can change any of them.
+The nearest settings file is used on its own; files at different levels do not
+merge. Unknown settings and bad values are errors. Every behavior with a
+setting name below can be overridden. The defaults are one person's style,
+and any team can change any of them.
 
 ### .editorconfig mapping
 
@@ -61,9 +75,12 @@ style, and any team can change any of them.
 | `csharp_new_line_before_open_brace` | `brace_style` (`all` is `allman`, `none` is `kr`) |
 | `csharp_new_line_before_else`, `_catch`, `_finally` | `continuation_keywords` (`false` is `same_line`) |
 | `dotnet_sort_system_directives_first` | `using_order` (`true` is `system_first`) |
-| `csharp_style_namespace_declarations` | `namespace_style` |
-| `csharp_prefer_braces` | `braces` |
+| `csharp_style_namespace_declarations` | `namespace_style` (`file_scoped`, `block_scoped`) |
+| `csharp_prefer_braces` | `braces` (`true` is `always`, `when_multiline` is `single_line_only`, `false` is `preserve`) |
 | `csharp_preferred_modifier_order` | `modifier_order` |
+
+Roslyn severities such as `true:warning` are read as their value. `root = true`
+stops the search, and the file nearest the source wins.
 
 ## Defaults
 
@@ -77,8 +94,8 @@ style, and any team can change any of them.
 | `end_of_line` | `preserve` | `lf`, `crlf` |
 | `charset` | `preserve` (keeps an existing BOM) | `utf-8`, `utf-8-bom` |
 | `insert_final_newline` | `true` | `false` |
-| `trim_trailing_whitespace` | `true` | `false` |
-| `lang_version` | `auto`: read `LangVersion` or the target framework from the `.csproj`; loose files assume the latest C# | a version such as `9` or `12` |
+| `trim_trailing_whitespace` | `true`: formatted lines never end in whitespace. Accepted for `.editorconfig` compatibility; text printed as written keeps its own. | `false` |
+| `lang_version` | `auto`: read `LangVersion`, or the oldest target framework, from the nearest `.csproj` and `Directory.Build.props`; loose files assume the latest C# | `latest`, or a version such as `9` or `12` |
 
 ### Braces and continuation keywords
 
@@ -150,7 +167,7 @@ public void Ship()
 | `expression_body_chain` | `own_line`: a broken chain after `=>` moves to the next line | `hang` |
 | `binary_wrap` | `before_operator_paren_own_line` | `before_operator`, `after_operator` |
 | `ternary_wrap` | `before`: break before `?` and `:` when too long | `after`, `always` |
-| `lambda_body` | `hug`: a multi-line lambda body hangs off the call line | `argument` |
+| `lambda_body` | `hug`: the last argument hangs off the call line when it is a lambda with a block body or a broken member chain, or a creation with a broken initializer | `argument` |
 
 ```csharp
 var invoice = invoiceService.CreateInvoice(
@@ -270,17 +287,44 @@ These change tokens, not only whitespace. Verification accounts for each one.
 | `comment_space` | `true`: `//text` becomes `// text`. `////` and `//---` banners are left alone. | `false` |
 | `comment_wrap` | `true`: rewrap long `//` comments to `max_line_length` | `false` |
 
-Comment text is otherwise never changed. A comment is not rewrapped when it looks like
-commented-out code (ends in `;`, `{`, or `}`, or contains `=>`), contains a URL, is a list line
-(`- `, `* `, `1. `), or is a `TODO:` line in a multi-line block. XML doc comments (`///`) are
-only reindented.
+Comment text is otherwise never changed. Consecutive `//` lines form a
+paragraph, which is printed as written unless one of its lines would pass the
+line width; only then are its words rewrapped. A comment is not rewrapped when
+it looks like commented-out code (ends in `;`, `{`, or `}`, or contains `=>`),
+contains a URL, is a list line (`- `, `* `, `1. `), is indented text (two or
+more spaces after `//`), or is a `TODO:` line in a multi-line block. XML doc
+comments (`///`) and block comments are only reindented.
+
+A comment that stood on its own line stays on its own line. A comment after
+code stays after that code: any code that would follow it on the line moves
+to the next line instead.
+
+## Printed as written
+
+Some code is printed exactly as it stands, so formatting cannot misplace it:
+
+- string and character literals of every kind, interpolated strings included;
+- preprocessor directive lines, at column 0 when they were written there;
+- a statement or member that holds a preprocessor directive in the middle of
+  an expression, such as a `#pragma` between two switch arms;
+- code under `// prettycsharp-ignore` comments (below).
 
 ## Skipping files and regions
 
 On by default:
 
-- `bin/`, `obj/`, `*.g.cs`, `*.Designer.cs`, and files marked `// <auto-generated>`
-- Paths matched by `.gitignore` (`respect_gitignore = true`)
-- Paths matched by `.prettycsharpignore`, gitignore syntax
+- `bin/`, `obj/`, hidden folders, `*.g.cs`, `*.g.i.cs`, `*.Designer.cs`,
+  `*.generated.cs`, and files marked `<auto-generated` in their opening comments
+- Paths matched by `.gitignore` inside a git repository (`respect_gitignore = true`)
+- Paths matched by `.prettycsharpignore` files at or above a file, gitignore syntax
 - `// prettycsharp-ignore` leaves the next statement or member untouched
 - `// prettycsharp-ignore-start` through `// prettycsharp-ignore-end` leaves a range untouched
+
+`--no-ignore` turns off both ignore files for one run.
+
+## Limits
+
+tree-sitter's C# grammar parses every `#if` branch as code, so a declaration
+or statement split between `#if` and `#else` does not parse. Neither does
+syntax newer than the grammar. Such files are reported with their line and
+column and left untouched.

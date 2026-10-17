@@ -4,6 +4,15 @@ prettycsharp is a Prettier-style C# formatter in Python: tree-sitter parses
 each file and the formatter reprints it in one layout. Read `DESIGN.md`
 first; it holds every agreed default and the setting behind it.
 
+The pipeline, in `formatter.py`: `syntax.py` copies tree-sitter's tree into
+`Node` objects and attaches comments to tokens; `rewrites.py` makes the
+token-changing rewrites; `printer/` turns nodes into a layout document
+(`core.py` dispatch, tokens, comments and lists; `expressions.py`,
+`statements.py` and `declarations.py` the handlers, each `p_<node type>`);
+`doc.py` fits the document to the width; `verify.py` reparses the output and
+compares canonical trees. `settings.py`, `config.py`, `project.py`,
+`ignore.py` and `cli.py` are the settings, files and command line.
+
 ## Commands
 
 ```bash
@@ -18,10 +27,19 @@ python -m pytest
 
 - A file that does not parse is never rewritten. Do not weaken
   `parsing.parse` to make a test pass.
+- The verifier is the safety net: never loosen `verify.canonical` to make
+  output pass. A new rewrite gets its own canonical form there, written
+  separately from the rewrite, so a bug in one cannot hide in the other.
+- Every token goes through `Core.tok`, so its comments are printed; a
+  handler that drops a token drops its comments and fails verification.
+- Check a printer change against real code before calling it done: format a
+  few open-source C# repositories and confirm no file is refused, crashes or
+  formats differently a second time.
 - The defaults in `DESIGN.md` are the owner's choices. Change one only when
   asked, and update `DESIGN.md` in the same change.
-- The package imports the standard library, tree-sitter and
-  tree-sitter-c-sharp, nothing else. Other packages are for development.
+- The package imports the standard library, tree-sitter,
+  tree-sitter-c-sharp, defusedxml and (on Python 3.10) tomli, nothing else.
+  Other packages are for development.
 - A fuzz finding becomes a seed in `tests/fuzz_corpus/csharp` with its fix.
 - Keep text in files plain ASCII, apart from test data that is about
   non-ASCII text.

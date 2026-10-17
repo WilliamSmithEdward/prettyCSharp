@@ -1,8 +1,11 @@
 """Coverage-guided fuzzing of the parser and the formatter on arbitrary text.
 
-  format  format_source() either returns or raises CSharpSyntaxError, never
-          anything else, and its output formats to itself again. The input
-          bytes are the source, as UTF-8.
+  format    format_source() with the default settings returns, or refuses
+            the input with CSharpSyntaxError or FormattingError, never fails
+            any other way, and its output formats to itself again. The input
+            bytes are the source, as UTF-8.
+  settings  The same, under the settings variant the first input byte picks;
+            the rest is the source.
 
     python fuzz/fuzz_formatter.py <target> [libFuzzer options] [corpus dirs]
     python fuzz/fuzz_formatter.py format -max_total_time=60 tests/fuzz_corpus/csharp
@@ -17,20 +20,37 @@ import sys
 import atheris
 
 with atheris.instrument_imports():
-    from prettycsharp import CSharpSyntaxError, format_source
+    from prettycsharp import CSharpSyntaxError, FormattingError, Settings, format_source
+
+VARIANTS = [
+    Settings(),
+    Settings().with_values({"brace_style": "kr", "continuation_keywords": "same_line", "indent_style": "tab"}),
+    Settings().with_values({"expression_bodies": "block", "namespace_style": "block", "braces": "always"}),
+    Settings().with_values({"max_line_length": 40, "argument_wrap": "fill", "parentheses": "remove_redundant"}),
+    Settings().with_values({"chain_break_threshold": 0, "attributes": "combine", "trailing_commas": "add"}),
+]
 
 
-def fuzz_format(data):
-    text = data.decode("utf-8", errors="replace")
+def check(text, settings):
     try:
-        output = format_source(text)
-    except CSharpSyntaxError:
+        output = format_source(text, settings)
+    except (CSharpSyntaxError, FormattingError):
         return
-    if format_source(output) != output:
+    if format_source(output, settings) != output:
         raise AssertionError("formatting the output changes it again")
 
 
-TARGETS = {"format": fuzz_format}
+def fuzz_format(data):
+    check(data.decode("utf-8", errors="replace"), VARIANTS[0])
+
+
+def fuzz_settings(data):
+    if not data:
+        return
+    check(data[1:].decode("utf-8", errors="replace"), VARIANTS[data[0] % len(VARIANTS)])
+
+
+TARGETS = {"format": fuzz_format, "settings": fuzz_settings}
 
 
 def main():

@@ -13,7 +13,7 @@ license-files = ["LICENSE"]
 authors = [{ name = "William Smith Edward" }]
 keywords = ["csharp", "c#", "formatter", "prettier", "code-style", "dotnet", "tree-sitter"]
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
@@ -27,11 +27,17 @@ classifiers = [
     "Topic :: Software Development :: Quality Assurance",
     "Typing :: Typed",
 ]
-# Two: the tree-sitter runtime and its C# grammar, both MIT and both shipping
-# wheels for every supported Python. Ranges here, for the people who install
-# the package; .github/requirements/runtime.txt pins what a fresh install gets
-# today, for the dependency audit.
-dependencies = ["tree-sitter>=0.25", "tree-sitter-c-sharp>=0.23.1"]
+# The tree-sitter runtime and its C# grammar (both MIT, with wheels for every
+# supported Python), defusedxml (PSF) to read project files safely, and tomli
+# (MIT) to read settings on Python 3.10, which has no tomllib. Ranges here, for
+# the people who install the package; .github/requirements/runtime.txt pins
+# what a fresh install gets today, for the dependency audit.
+dependencies = [
+    "tree-sitter>=0.25",
+    "tree-sitter-c-sharp>=0.23.1",
+    "defusedxml>=0.7.1",
+    "tomli>=1.1.0; python_version < '3.11'",
+]
 
 [project.optional-dependencies]
 # Exact pins, so the gate does not drift under main. They match
@@ -62,7 +68,16 @@ line-length = 110
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I", "B", "UP"]
 
+[tool.ruff.lint.isort]
+# The tests' shared helpers, imported from tests/.
+known-local-folder = ["support"]
+
 [tool.mypy]
 python_version = "3.10"
 strict = true
 files = ["src/prettycsharp"]
+
+[[tool.mypy.overrides]]
+# defusedxml ships no type information.
+module = ["defusedxml", "defusedxml.*"]
+ignore_missing_imports = true

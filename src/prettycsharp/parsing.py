@@ -15,10 +15,16 @@ class CSharpSyntaxError(ValueError):
     parser found.
     """
 
-    def __init__(self, line: int, column: int) -> None:
-        super().__init__(f"syntax error at line {line}, column {column}")
+    def __init__(self, line: int, column: int, hint: str = "") -> None:
+        super().__init__(f"syntax error at line {line}, column {column}{hint}")
         self.line = line
         self.column = column
+
+
+_CONDITIONAL_HINT = (
+    " (the parser reads every #if branch as code, so a declaration or statement"
+    " split between branches cannot be parsed)"
+)
 
 
 def parse(source: str) -> Tree:
@@ -27,7 +33,8 @@ def parse(source: str) -> Tree:
     if tree.root_node.has_error:
         node = _first_error(tree.root_node)
         row, column = node.start_point if node is not None else (0, 0)
-        raise CSharpSyntaxError(row + 1, column + 1)
+        hint = _CONDITIONAL_HINT if "#if" in source else ""
+        raise CSharpSyntaxError(row + 1, column + 1, hint)
     return tree
 
 

@@ -19,24 +19,36 @@ releases are not maintained separately; update when a fix ships.
 ## Scope
 
 prettycsharp reads C# source files that may come from anyone and, with
-`format`, writes them back in place. The things to worry about are an
-input file and a write. These count as vulnerabilities:
+`format`, writes them back in place. It also reads the files around them:
+settings files (`.prettycsharp.toml`, `pyproject.toml`, `.editorconfig`),
+ignore files (`.gitignore`, `.prettycsharpignore`) and MSBuild files
+(`.csproj`, `Directory.Build.props`, `.sln`, `.slnx`). The things to worry
+about are an input file and a write. These count as vulnerabilities:
 
-- a source file that makes the formatter hang, run out of memory or crash
-  the interpreter;
+- a source, settings, ignore or project file that makes the formatter
+  hang, run out of memory or crash the interpreter;
 - a write that touches any file other than the one being formatted, or
   leaves that file damaged when the write fails;
-- output that changes what the code means.
+- output that changes what the code means and gets past the verifier.
 
 prettycsharp never runs the code it formats. It does not compile or
-execute C#, start .NET, open a network connection or run a command.
-Parsing goes through its two runtime dependencies,
+execute C#, start .NET or MSBuild, open a network connection or run a
+command. Parsing goes through
 [tree-sitter](https://github.com/tree-sitter/py-tree-sitter) and
 [tree-sitter-c-sharp](https://github.com/tree-sitter/tree-sitter-c-sharp),
-which are native code and have their own projects. A file with a syntax
-error is reported and never rewritten, and `format` writes each file to a
-temporary file beside it and swaps it in, so a failed write leaves the
-original as it was.
+which are native code and have their own projects. MSBuild files are read
+with [defusedxml](https://github.com/tiran/defusedxml), which refuses
+entity expansion and external references, and settings files with Python's
+`tomllib` (or `tomli` on Python 3.10).
+
+Before any file is written, the formatted text is parsed again and
+compared with the input as syntax trees, allowing only the changes the
+settings ask for, and the comments must hold the same words. A file that
+fails the comparison, or that has a syntax error, is reported and never
+rewritten. `format` writes each file to a temporary file beside it and
+swaps it in, so a failed write leaves the original as it was. A file
+nested too deeply to format fails with a message rather than exhausting
+the stack.
 
 ## How the code is checked
 
@@ -56,8 +68,8 @@ rules reach files that have not changed.
   hide a finding. Results go to the repository's code scanning.
 - **Workflows:** zizmor audits the GitHub Actions workflows; a finding fails
   Security.
-- **Dependencies:** pip-audit checks the runtime dependencies, tree-sitter
-  and tree-sitter-c-sharp, as a fresh install resolves them today
+- **Dependencies:** pip-audit checks the runtime dependencies, tree-sitter,
+  tree-sitter-c-sharp, defusedxml and tomli, as a fresh install resolves them today
   (`.github/requirements/runtime.txt`, hash-locked and moved daily by
   Dependabot). Any known vulnerability fails Security. The tools the
   workflows install come from hash-locked files (see Pinning and updates).
@@ -68,10 +80,12 @@ rules reach files that have not changed.
   as a release builds them. YARA-X runs the full
   [YARA Forge](https://github.com/YARAHQ/yara-forge) rule collection. A
   scan error fails the report as a match does.
-- **Fuzzing:** Atheris drives `fuzz/fuzz_formatter.py` with generated
-  text: the formatter must either return or refuse the input with
-  `CSharpSyntaxError`, never fail any other way, and must format its own
-  output to itself. It starts from the seeds in `tests/fuzz_corpus/csharp`.
+- **Fuzzing:** Atheris drives two targets in `fuzz/fuzz_formatter.py` with
+  generated text, one with the default settings and one under five other
+  settings combinations: the formatter must either return or refuse the
+  input with `CSharpSyntaxError` or `FormattingError`, never fail any other
+  way, and must format its own output to itself. Both start from the seeds
+  in `tests/fuzz_corpus/csharp`.
   The Fuzz workflow runs on every change to main that touches the package,
   the fuzz target or the corpus, and daily. It does not run on pull
   requests, where its random search would fail for code the pull request
