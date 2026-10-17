@@ -10,7 +10,10 @@ token-changing rewrites; `printer/` turns nodes into a layout document
 (`core.py` dispatch, tokens, comments and lists; `expressions.py`,
 `statements.py` and `declarations.py` the handlers, each `p_<node type>`);
 `doc.py` fits the document to the width; `verify.py` reparses the output and
-compares canonical trees. `settings.py`, `config.py`, `project.py`,
+compares canonical trees. When `#if` branches split code so the file does
+not parse whole, `conditional.py` formats one view (set of defined symbols)
+at a time, with directive lines and inactive branches behind placeholder
+comments, and checks every view at the end. `settings.py`, `config.py`, `project.py`,
 `ignore.py` and `cli.py` are the settings, files and command line.
 
 ## Commands

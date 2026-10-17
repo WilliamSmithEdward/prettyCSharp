@@ -9,16 +9,18 @@ crashing the interpreter.
 
 from __future__ import annotations
 
+import dataclasses
 import sys
 import threading
 from collections.abc import Callable
 from typing import TypeVar
 
+from prettycsharp import conditional
 from prettycsharp.parsing import CSharpSyntaxError
 from prettycsharp.printer import print_file
 from prettycsharp.rewrites import rewrite
 from prettycsharp.settings import Settings
-from prettycsharp.syntax import build
+from prettycsharp.syntax import SourceFile, build
 from prettycsharp.verify import VerificationError, canonical, comment_words
 
 LATEST = 99.0
@@ -56,6 +58,51 @@ def format_source(source: str, settings: Settings | None = None, *, lang_version
 
 
 def _format(source: str, settings: Settings, lang_version: float) -> str:
+    try:
+        return _format_parsed(source, settings, lang_version)
+    except CSharpSyntaxError as error:
+        if not conditional.has_conditionals(source):
+            raise
+        syntax_error = error
+    # The #if branches together are not valid C#: format one view at a time.
+    # The namespace rewrite stays off, since moving a namespace's braces
+    # across hidden branches would break them.
+    one_view = dataclasses.replace(settings, namespace_style="preserve")
+    try:
+        result = conditional.format_conditional(
+            source, lambda text: _format_parsed(text, one_view, lang_version), _same_view
+        )
+    except conditional.BranchChanged as error:
+        raise FormattingError(str(error)) from None
+    except conditional.ConditionalError:
+        raise syntax_error from None
+    if result is None:
+        raise syntax_error
+    return result
+
+
+def _same_view(before: str, after: str) -> bool:
+    """Whether two views of a file, with the same branches hidden, are the same code."""
+    try:
+        old, new = build(before), build(after)
+    except CSharpSyntaxError:
+        return False
+    if canonical(old.root) != canonical(new.root):
+        return False
+    # Hidden text differs between the views by design: it was formatted in its own view.
+    return _visible_words(old) == _visible_words(new)
+
+
+def _visible_words(file: SourceFile) -> object:
+    words = comment_words(file)
+    return {word: count for word, count in words.items() if not word.startswith("#prettycsharp-hidden") and not _is_id(word)}
+
+
+def _is_id(word: str) -> bool:
+    return len(word) == 16 and all(c in "0123456789abcdef" for c in word)
+
+
+def _format_parsed(source: str, settings: Settings, lang_version: float) -> str:
     file = build(source)
     expected_tree = canonical(file.root)
     expected_comments = comment_words(file)
