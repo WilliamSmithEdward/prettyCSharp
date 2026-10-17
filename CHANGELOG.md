@@ -2,7 +2,7 @@
 
 Each release's section becomes the body of its GitHub release.
 
-## [Unreleased]
+## [1.0.0] - 2026-10-17
 
 The first release: a complete formatter for C# files, projects and
 solutions.
