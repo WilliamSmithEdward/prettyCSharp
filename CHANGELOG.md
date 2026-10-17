@@ -2,7 +2,7 @@
 
 Each release's section becomes the body of its GitHub release.
 
-## [Unreleased]
+## [1.1.0] - 2026-10-17
 
 - Files whose `#if` branches split a declaration or statement, such as a
   class header with a different base list in each branch, are formatted
