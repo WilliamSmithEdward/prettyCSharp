@@ -16,7 +16,8 @@ from collections.abc import Callable
 from typing import TypeVar
 
 from prettycsharp import conditional
-from prettycsharp.parsing import CSharpSyntaxError
+from prettycsharp.isolate import isolate
+from prettycsharp.parsing import CSharpSyntaxError, parse
 from prettycsharp.printer import print_file
 from prettycsharp.rewrites import rewrite
 from prettycsharp.settings import Settings
@@ -44,6 +45,14 @@ def lang_version_of(settings: Settings, detected: float | None = None) -> float:
     return float(settings.lang_version)
 
 
+@dataclasses.dataclass(frozen=True)
+class FormatResult:
+    text: str
+    # Lines (1-based, in the source) left as written because the parser could
+    # not read them; only with syntax_errors = "format_around".
+    kept_lines: tuple[int, ...] = ()
+
+
 def format_source(source: str, settings: Settings | None = None, *, lang_version: float | None = None) -> str:
     """Return ``source`` formatted.
 
@@ -52,33 +61,81 @@ def format_source(source: str, settings: Settings | None = None, *, lang_version
     ``lang_version`` is the project's C# version, used when the settings say
     ``auto``; without it the latest version is assumed.
     """
+    return format_details(source, settings, lang_version=lang_version).text
+
+
+def format_details(
+    source: str, settings: Settings | None = None, *, lang_version: float | None = None
+) -> FormatResult:
+    """Like format_source, also telling which lines were left as written."""
     chosen = settings or Settings()
     version = lang_version_of(chosen, lang_version)
     return _run_with_big_stack(lambda: _format(source, chosen, version))
 
 
-def _format(source: str, settings: Settings, lang_version: float) -> str:
+def _format(source: str, settings: Settings, lang_version: float) -> FormatResult:
     try:
-        return _format_parsed(source, settings, lang_version)
+        return FormatResult(_format_parsed(source, settings, lang_version))
     except CSharpSyntaxError as error:
-        if not conditional.has_conditionals(source):
-            raise
         syntax_error = error
-    # The #if branches together are not valid C#: format one view at a time.
-    # The namespace rewrite stays off, since moving a namespace's braces
-    # across hidden branches would break them.
-    one_view = dataclasses.replace(settings, namespace_style="preserve")
-    try:
-        result = conditional.format_conditional(
-            source, lambda text: _format_parsed(text, one_view, lang_version), _same_view
-        )
-    except conditional.BranchChanged as error:
-        raise FormattingError(str(error)) from None
-    except conditional.ConditionalError:
-        raise syntax_error from None
-    if result is None:
-        raise syntax_error
-    return result
+    # Neither rewrite may move a namespace's braces across hidden lines.
+    hiding = dataclasses.replace(settings, namespace_style="preserve")
+    if conditional.has_conditionals(source):
+        # The #if branches together are not valid C#: format one view at a time.
+        try:
+            result = conditional.format_conditional(
+                source, lambda text: _format_parsed(text, hiding, lang_version), _same_view
+            )
+        except conditional.BranchChanged as error:
+            raise FormattingError(str(error)) from None
+        except conditional.ConditionalError:
+            raise syntax_error from None
+        if result is not None:
+            return FormatResult(result)
+    if settings.syntax_errors == "format_around":
+        around = _format_around(source, hiding, lang_version)
+        if around is not None:
+            return around
+    raise syntax_error
+
+
+def _format_around(source: str, settings: Settings, lang_version: float) -> FormatResult | None:
+    """Format all but the fewest lines that keep the source from parsing."""
+    masked = isolate(source)
+    if masked is None:
+        return None
+    formatted = _format_parsed(masked.text, settings, lang_version)
+    if _placements(masked.text) != _placements(formatted):
+        raise FormattingError("a line the parser cannot read would move")
+    text = conditional.restore(formatted, masked.hidden, reindent=True)
+    return FormatResult(text, masked.hidden_rows)
+
+
+def _placements(text: str) -> list[tuple[str, str, str]]:
+    """Each hidden line's placeholder with the code tokens just before and after it."""
+    out: list[tuple[str, str, str]] = []
+    previous = ""
+    pending: list[str] = []
+    stack = [parse(text).root_node]
+    leaves = []
+    while stack:
+        node = stack.pop()
+        if node.child_count == 0 or node.type == "comment":
+            leaves.append(node)
+        else:
+            stack.extend(reversed(node.children))
+    for leaf in leaves:
+        content = (leaf.text or b"").decode("utf-8")
+        if leaf.type == "comment":
+            if conditional.is_placeholder(content):
+                pending.append(content)
+            continue
+        for placeholder in pending:
+            out.append((placeholder, previous, content))
+        pending = []
+        previous = content
+    out.extend((placeholder, previous, "") for placeholder in pending)
+    return out
 
 
 def _same_view(before: str, after: str) -> bool:

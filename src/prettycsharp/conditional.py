@@ -148,6 +148,10 @@ class Masked:
     hidden: dict[str, str] = field(default_factory=dict)
     # The directive lines (by number) of the branches this symbol set makes active.
     active_branches: frozenset[int] = frozenset()
+    # Whether restore moves hidden lines to their placeholder's indentation.
+    reindent: bool = False
+    # The source lines (1-based) that were hidden, when the hiding chose lines.
+    hidden_rows: tuple[int, ...] = ()
 
 
 def _split_lines(source: str) -> list[str]:
@@ -210,7 +214,17 @@ def mask(source: str, defined: Iterable[str]) -> Masked:
             active_branches.add(number)
     if stack:
         raise ConditionalError("#if without #endif")
+    masked = hide(lines, keep)
+    masked.active_branches = frozenset(active_branches)
+    return masked
 
+
+def hide(lines: Sequence[str], keep: Sequence[bool], *, reindent: bool = False) -> Masked:
+    """Replace each run of lines not kept by one placeholder comment line.
+
+    ``lines`` keep their line breaks. With ``reindent``, ``restore`` moves the
+    hidden lines to the indentation their placeholder was printed at.
+    """
     out: list[str] = []
     hidden: dict[str, str] = {}
     run: list[str] = []
@@ -232,7 +246,7 @@ def mask(source: str, defined: Iterable[str]) -> Masked:
         else:
             run.append(line)
     flush(_line_break(run[-1]) if run else "")
-    return Masked("".join(out), hidden, frozenset(active_branches))
+    return Masked("".join(out), hidden, reindent=reindent)
 
 
 def _line_break(line: str) -> str:
@@ -240,12 +254,18 @@ def _line_break(line: str) -> str:
     return line[len(content) :] or "\n"
 
 
-def restore(text: str, hidden: dict[str, str]) -> str:
-    """Put back the text each placeholder line stands for."""
+def restore(text: str, hidden: dict[str, str], *, reindent: bool = False) -> str:
+    """Put back the text each placeholder line stands for.
+
+    With ``reindent``, hidden lines move to the indentation their placeholder
+    was printed at, unless they could hold a multi-line string, whose
+    content must not change.
+    """
     seen: set[str] = set()
     out: list[str] = []
     for line in _split_lines(text):
-        match = _PLACEHOLDER.match(_content(line))
+        content = _content(line)
+        match = _PLACEHOLDER.match(content)
         if match is None:
             out.append(line)
             continue
@@ -253,10 +273,32 @@ def restore(text: str, hidden: dict[str, str]) -> str:
         if identifier not in hidden or identifier in seen:
             raise ConditionalError("a hidden line was lost or repeated while formatting")
         seen.add(identifier)
-        out.append(hidden[identifier] + line[len(_content(line)) :])
+        original = hidden[identifier]
+        if reindent:
+            original = _reindent(original, content[: len(content) - len(content.lstrip())])
+        out.append(original + line[len(content) :])
     if seen != set(hidden):
         raise ConditionalError("a hidden line was lost while formatting")
     return "".join(out)
+
+
+_MULTILINE_STRING = re.compile(r'"""|@"|\$@"|@\$"')
+
+
+def _reindent(text: str, indentation: str) -> str:
+    """Shift lines that share the first line's indentation to ``indentation``."""
+    if _MULTILINE_STRING.search(text):
+        return text
+    lines = _split_lines(text)
+    first = _content(lines[0])
+    old = first[: len(first) - len(first.lstrip())]
+    shifted = []
+    for line in lines:
+        if line.startswith(old) and _content(line).strip():
+            shifted.append(indentation + line[len(old) :])
+        else:
+            shifted.append(line)
+    return "".join(shifted)
 
 
 # Symbol sets ---------------------------------------------------------------

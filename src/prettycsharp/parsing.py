@@ -24,14 +24,19 @@ class CSharpSyntaxError(ValueError):
 _CONDITIONAL_HINT = " (seen whole, and with its #if branches taken one view at a time)"
 
 
-def parse(source: str) -> Tree:
-    """Parse ``source`` and return its tree, or raise CSharpSyntaxError."""
+def parse_tree(source: str) -> Tree:
+    """Parse ``source``, errors and all."""
     data = source.encode("utf-8")
     if not data.endswith((b"\n", b"\r")):
         # The grammar wants a line break after a directive, even at the end
         # of the file. The extra byte comes after every node's text.
         data += b"\n"
-    tree = Parser(_LANGUAGE).parse(data)
+    return Parser(_LANGUAGE).parse(data)
+
+
+def parse(source: str) -> Tree:
+    """Parse ``source`` and return its tree, or raise CSharpSyntaxError."""
+    tree = parse_tree(source)
     if tree.root_node.has_error:
         node = _first_error(tree.root_node)
         row, column = node.start_point if node is not None else (0, 0)

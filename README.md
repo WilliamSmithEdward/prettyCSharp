@@ -112,10 +112,14 @@ and left untouched.
 From Python:
 
 ```python
-from prettycsharp import CSharpSyntaxError, FormattingError, Settings, format_source
+from prettycsharp import CSharpSyntaxError, FormattingError, Settings, format_details, format_source
 
 formatted = format_source(source)
 narrow = format_source(source, Settings().with_values({"max_line_length": 100}))
+
+# format_details also says which lines were left as written (format_around).
+result = format_details(source, Settings().with_values({"syntax_errors": "format_around"}))
+print(result.text, result.kept_lines)
 ```
 
 ## Settings
@@ -184,13 +188,21 @@ are chosen so that every branch is active in one of them, so every branch
 gets formatted. The result is checked under each symbol set, and a file
 where any branch would change in meaning is left untouched.
 
-## Limits
+## Code the parser cannot read
 
-prettycsharp reads C# through tree-sitter's C# grammar. Syntax newer than
-the grammar, such as C# 14's null-conditional assignment, does not parse,
-and neither does a file whose `#if` branches leave invalid code under every
-symbol set tried. Such files are reported with their line and column and
-left untouched.
+prettycsharp reads C# through tree-sitter's C# grammar, and syntax newer
+than the grammar, such as C# 14's null-conditional assignment, does not
+parse. By default such a file is reported with its line and column and left
+untouched. With `syntax_errors = "format_around"`, the formatter finds the
+fewest lines it cannot read, leaves just those as written, formats the rest,
+and names the lines it kept:
+
+```bash
+prettycsharp format src/ -o syntax_errors=format_around
+```
+
+A file is still left untouched when hiding lines does not make it parse, as
+when an `#if` stands inside an expression.
 
 ## License
 

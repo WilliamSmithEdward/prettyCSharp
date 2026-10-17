@@ -89,6 +89,7 @@ class Settings:
     comment_wrap: bool = True
 
     respect_gitignore: bool = True
+    syntax_errors: str = "skip_file"
 
     def with_values(self, values: Mapping[str, object], source: str = "settings") -> Settings:
         changes: dict[str, object] = {}
@@ -139,6 +140,7 @@ _CHOICES: dict[str, tuple[str, ...]] = {
     "attributes": ("separate", "combine", "preserve"),
     "parentheses": ("remove_obvious", "remove_redundant", "preserve"),
     "regions": ("preserve", "remove", "normalize"),
+    "syntax_errors": ("skip_file", "format_around"),
 }
 
 _FIELDS = {f.name: f for f in dataclasses.fields(Settings)}

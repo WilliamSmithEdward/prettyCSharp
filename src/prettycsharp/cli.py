@@ -25,7 +25,7 @@ from pathlib import Path
 
 from prettycsharp import __version__, config, ignore, project
 from prettycsharp.config import settings_for
-from prettycsharp.formatter import FormattingError, format_source
+from prettycsharp.formatter import FormattingError, format_details
 from prettycsharp.ignore import Ignorer
 from prettycsharp.parsing import CSharpSyntaxError
 from prettycsharp.project import compiled_files, lang_version_for, solution_projects
@@ -163,7 +163,12 @@ def _format_text(text: str, path: Path, settings: Settings) -> str:
     """Format text read from ``path``, keeping or changing its byte order mark."""
     bom = _BOM if text.startswith(_BOM) else ""
     lang = lang_version_for(path) if settings.lang_version == "auto" else None
-    formatted = format_source(text[len(bom) :], settings, lang_version=lang)
+    result = format_details(text[len(bom) :], settings, lang_version=lang)
+    formatted = result.text
+    if result.kept_lines:
+        numbers = ", ".join(str(n) for n in result.kept_lines)
+        noun = "line" if len(result.kept_lines) == 1 else "lines"
+        print(f"{path}: {noun} {numbers} left as written; the parser cannot read them", file=sys.stderr)
     if settings.charset == "utf-8-bom":
         bom = _BOM
     elif settings.charset == "utf-8":

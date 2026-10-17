@@ -13,6 +13,14 @@ Each release's section becomes the body of its GitHub release.
   skipped.
 - A file that ends in a directive without a final line break, such as
   `#pragma warning restore`, parses.
+- A new setting, `syntax_errors = "format_around"`, formats files that hold
+  syntax newer than the parser, such as C# 14's null-conditional assignment
+  or the `#:` directives of file-based apps. The fewest lines the parser
+  cannot read are left as written, moved to the new indentation, and the
+  rest is formatted; the command line names the lines it kept. The default,
+  `skip_file`, leaves such files untouched as before.
+- `format_details()` returns the formatted text with the lines left as
+  written.
 
 ## [1.0.0] - 2026-10-17
 
