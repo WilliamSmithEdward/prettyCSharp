@@ -164,13 +164,33 @@ same words. If anything else differs, the file is not changed and the
 command reports the difference. String literals, including verbatim, raw and
 interpolated strings, are printed exactly as written.
 
+## Conditional compilation
+
+`#if` branches can split a declaration, as in:
+
+```csharp
+#if NET10_0_OR_GREATER
+public sealed class Pool : IAsyncDisposable
+#else
+public sealed class Pool : IDisposable
+#endif
+{
+```
+
+Such a file is formatted the way the compiler reads it, one set of defined
+symbols at a time: the directive lines and the inactive branches are set
+aside, the rest is formatted, and they are put back as written. Symbol sets
+are chosen so that every branch is active in one of them, so every branch
+gets formatted. The result is checked under each symbol set, and a file
+where any branch would change in meaning is left untouched.
+
 ## Limits
 
-prettycsharp reads C# through tree-sitter's C# grammar, which parses every
-`#if` branch as code. A declaration or statement split between `#if` and
-`#else` therefore does not parse, and neither does syntax newer than the
-grammar (such as C# 14's null-conditional assignment). Such files are
-reported with their line and column and left untouched.
+prettycsharp reads C# through tree-sitter's C# grammar. Syntax newer than
+the grammar, such as C# 14's null-conditional assignment, does not parse,
+and neither does a file whose `#if` branches leave invalid code under every
+symbol set tried. Such files are reported with their line and column and
+left untouched.
 
 ## License
 

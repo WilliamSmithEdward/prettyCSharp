@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 
+from prettycsharp.conditional import is_placeholder
 from prettycsharp.settings import Settings
 from prettycsharp.syntax import Comment, Node, SourceFile, token, walk
 from prettycsharp.verify import is_embedded
@@ -118,6 +119,12 @@ def _frozen(node: Node) -> bool:
 
 def _has_comments(nodes: Iterable[Node]) -> bool:
     return any(t.leading or t.trailing for n in nodes for t in n.tokens())
+
+
+def _after_hidden(node: Node) -> bool:
+    """Whether a hidden #if branch or directive line stands just before the node."""
+    first = node.first_token()
+    return first is not None and any(is_placeholder(c.text) for c in first.leading)
 
 
 def _has_verbatim(node: Node) -> bool:
@@ -236,8 +243,10 @@ def sort_usings(root: Node, order: str) -> None:
             if children[i].type != "using_directive":
                 i += 1
                 continue
-            end = i
-            while end < len(children) and children[end].type == "using_directive":
+            end = i + 1
+            # A hidden #if branch or directive line (see conditional.py) is a
+            # boundary: no using moves across it.
+            while end < len(children) and children[end].type == "using_directive" and not _after_hidden(children[end]):
                 end += 1
             run = children[i:end]
             ordered = sorted(run, key=lambda n: using_key(n, order))
@@ -282,6 +291,8 @@ def order_modifiers(root: Node, order: Sequence[str]) -> None:
         if len(indexes) < 2 or indexes[-1] - indexes[0] != len(indexes) - 1:
             continue
         run = [node.children[i] for i in indexes]
+        if any(_after_hidden(m) for m in run[1:]):
+            continue
         ordered = sorted(run, key=lambda m: modifier_rank(_token_text(m), order))
         if ordered != run:
             _keep_header(run, ordered)
@@ -507,6 +518,9 @@ def _getter_to_property_arrow(node: Node) -> None:
 def _property_arrow_to_getter(node: Node) -> None:
     arrow = node.child("value")
     if arrow is None or arrow.type != "arrow_expression_clause" or len(arrow.children) != 2:
+        return
+    if arrow.children[0].leading or arrow.children[0].trailing:
+        # A comment (or a hidden #if line) before the arrow stays where it is.
         return
     index = node.children.index(arrow)
     after = node.children[index + 1 :]

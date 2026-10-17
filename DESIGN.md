@@ -322,9 +322,33 @@ On by default:
 
 `--no-ignore` turns off both ignore files for one run.
 
+## Conditional compilation
+
+tree-sitter's C# grammar parses every `#if` branch as code. When the
+branches together are valid C#, the file is formatted as a whole. When they
+are not, because a declaration or statement is split between branches, the
+file is formatted one view at a time (`conditional.py`):
+
+1. A view is a set of defined symbols. Conditions are evaluated as the
+   compiler does (`!`, `&&`, `||`, `==`, `!=`, parentheses, `true`, `false`),
+   with `#define` and `#undef` honoured where they are compiled.
+2. In a view, each directive line and each run of inactive lines is replaced
+   by a placeholder comment. What is left is the code the compiler sees, and
+   it is formatted normally, verification included. The placeholders then go
+   back to the text they stood for, exactly as written.
+3. Views are tried simplest first (no symbols, each symbol alone, all, all
+   but one, at most 16) and kept when they parse and make a branch active
+   that no earlier view did, so every branch is formatted in its own view.
+4. The result is checked through every view used: with the same lines set
+   aside, it must be the same code as the source. Otherwise the file is left
+   untouched.
+
+In this mode no rewrite moves code across a directive: the namespace style
+is left as it is, a using never moves past a directive, and modifiers split
+by one keep their order.
+
 ## Limits
 
-tree-sitter's C# grammar parses every `#if` branch as code, so a declaration
-or statement split between `#if` and `#else` does not parse. Neither does
-syntax newer than the grammar. Such files are reported with their line and
-column and left untouched.
+Syntax newer than the grammar does not parse, nor does a file whose `#if`
+branches leave invalid code in every view tried. Such files are reported
+with their line and column and left untouched.

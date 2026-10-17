@@ -2,6 +2,18 @@
 
 Each release's section becomes the body of its GitHub release.
 
+## [Unreleased]
+
+- Files whose `#if` branches split a declaration or statement, such as a
+  class header with a different base list in each branch, are formatted
+  instead of refused. Each view of the file (a set of defined symbols) is
+  formatted on its own with the other branches set aside, so every branch
+  is formatted, and the result is checked through every view. On ten
+  open-source repositories this formats 94 of the 108 files that 1.0.0
+  skipped.
+- A file that ends in a directive without a final line break, such as
+  `#pragma warning restore`, parses.
+
 ## [1.0.0] - 2026-10-17
 
 The first release: a complete formatter for C# files, projects and
