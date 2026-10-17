@@ -347,8 +347,28 @@ In this mode no rewrite moves code across a directive: the namespace style
 is left as it is, a using never moves past a directive, and modifiers split
 by one keep their order.
 
+## Code the parser cannot read
+
+| Setting | Default | Alternatives |
+| --- | --- | --- |
+| `syntax_errors` | `skip_file`: a file that does not parse is reported and left untouched | `format_around` |
+
+Syntax newer than the grammar, such as C# 14's null-conditional assignment
+or the `#:` directives of file-based apps, does not parse. With
+`format_around`, the formatter looks for the fewest whole lines whose removal
+lets the file parse (`isolate.py`), trying the lines around each error in
+turn. Those lines are hidden behind placeholder comments, the rest is
+formatted and verified, and they go back exactly as written, moved to the
+indentation their placeholder was printed at (unless they could hold a
+multi-line string). Each hidden line must sit between the same two code
+tokens before and after formatting, so the order of the code cannot change.
+The command line names the lines left as written.
+
+No more than half a file's lines are hidden, and some code must be left to
+format; otherwise the file is skipped as before.
+
 ## Limits
 
-Syntax newer than the grammar does not parse, nor does a file whose `#if`
-branches leave invalid code in every view tried. Such files are reported
-with their line and column and left untouched.
+A file still is not formatted when no view of its `#if` branches parses and,
+with `format_around`, hiding lines does not make it parse either, as when an
+`#if` stands inside an expression.

@@ -13,7 +13,9 @@ token-changing rewrites; `printer/` turns nodes into a layout document
 compares canonical trees. When `#if` branches split code so the file does
 not parse whole, `conditional.py` formats one view (set of defined symbols)
 at a time, with directive lines and inactive branches behind placeholder
-comments, and checks every view at the end. `settings.py`, `config.py`, `project.py`,
+comments, and checks every view at the end. With `syntax_errors =
+"format_around"`, `isolate.py` finds the fewest lines whose removal lets the
+file parse and hides them behind the same placeholders. `settings.py`, `config.py`, `project.py`,
 `ignore.py` and `cli.py` are the settings, files and command line.
 
 ## Commands
