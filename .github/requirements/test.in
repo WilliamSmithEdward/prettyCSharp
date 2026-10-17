@@ -1,0 +1,17 @@
+# Test tooling for the CI and Publish test gates, pinned with hashes so a run
+# installs exactly what was reviewed, with the two runtime dependencies,
+# tree-sitter and its C# grammar. The package itself installs afterwards
+# with --no-deps --no-build-isolation, so hatchling, its build backend, and
+# editables, which hatchling needs for an editable install, come from this
+# lock too. The tool versions match the dev extra in pyproject.toml.
+# Compiled for the oldest Python the test matrix runs, so one lock serves
+# 3.10 to 3.14:
+#   uv pip compile test.in --universal --generate-hashes --python-version 3.10 -o test.txt
+# Dependabot proposes each new release.
+pytest==9.1.1
+ruff==0.16.10
+mypy==2.4.0
+tree-sitter==0.26.0
+tree-sitter-c-sharp==0.23.5
+hatchling==1.32.4
+editables==0.6

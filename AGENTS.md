@@ -1,0 +1,60 @@
+# Notes for coding agents
+
+prettycsharp is a Prettier-style C# formatter in Python: tree-sitter parses
+each file and the formatter reprints it in one layout. Read `DESIGN.md`
+first; it holds every agreed default and the setting behind it.
+
+## Commands
+
+```bash
+pip install --require-hashes -r .github/requirements/test.txt
+pip install --no-deps --no-build-isolation -e .
+ruff check src tests fuzz
+mypy
+python -m pytest
+```
+
+## Rules of the road
+
+- A file that does not parse is never rewritten. Do not weaken
+  `parsing.parse` to make a test pass.
+- The defaults in `DESIGN.md` are the owner's choices. Change one only when
+  asked, and update `DESIGN.md` in the same change.
+- The package imports the standard library, tree-sitter and
+  tree-sitter-c-sharp, nothing else. Other packages are for development.
+- A fuzz finding becomes a seed in `tests/fuzz_corpus/csharp` with its fix.
+- Keep text in files plain ASCII, apart from test data that is about
+  non-ASCII text.
+
+<!-- repo-standards:begin. Copied from WilliamSmithEdward/repo-standards, templates/agents/AGENTS-block.md. Change it there; the weekly rescan fails a copy that differs. -->
+## Releases, CI and security
+
+These rules are the same in every WilliamSmithEdward repository.
+
+- **How a release happens here:** pushing a `vX.Y.Z` tag runs Publish, which uploads to PyPI and creates the GitHub release with its security and malware reports.
+- **Starting a workflow by hand never releases anything.** Publish and every
+  release report are dry runs when started with `gh workflow run` or the Run
+  workflow button. They build, scan and assemble the release files exactly
+  as a release would, and upload them as the `release-preview` artifact
+  instead. Run one after changing anything on the release path:
+  `gh workflow run <file> --ref main`, then
+  `gh run download <run-id> -n release-preview`.
+- **Do not create, publish, edit or delete a release or a `v*` tag** unless
+  the owner asks for it. A `v*` tag cannot be moved or deleted once pushed.
+- **Every change to `main` goes through a pull request** that passes CI
+  passed, Security passed and Malware scan passed. No one can push to `main`
+  directly or skip the checks, admins included. Push a branch, open a pull
+  request, and let it merge itself: `gh pr merge --auto --squash <number>`.
+- **Pins.** Actions by full commit SHA with the version as a comment. Images
+  by digest, in `.github/security/<tool>/Dockerfile`. Python tools from the
+  hash-locked `.github/requirements/<purpose>.txt`, compiled from the `.in`
+  beside it with
+  `uv pip compile <purpose>.in --universal --generate-hashes --python-version 3.12 -o <purpose>.txt`.
+  Runners are named releases, never `-latest`.
+- **Updates merge themselves.** Dependabot and the Update YARA rules workflow
+  open pull requests that merge once the three checks pass, except a
+  third-party major version, which waits for the owner. Leave them alone
+  unless asked.
+- **A scanner finding is fixed or accepted with a written reason** in the
+  repository's accepted list. Never silence a scanner without one.
+<!-- repo-standards:end -->

@@ -1,0 +1,286 @@
+# prettycsharp design
+
+An opinionated formatter for C#, written in Python, in the spirit of Prettier. It parses each
+file and reprints the whole file in one canonical layout. It does not report lint diagnostics.
+
+## Foundations
+
+| Decision | Choice |
+| --- | --- |
+| Package, command, import name | `prettycsharp` |
+| Python | 3.10+ |
+| Parser | tree-sitter-c-sharp through the py-tree-sitter bindings. No .NET dependency. |
+| Model | Prettier-style reprinter only. No rule engine, no diagnostics. |
+| Inputs | A `.cs` file, a folder, a `.csproj` (the files it compiles), or a `.sln` |
+| Safety | Every output is reparsed and its tree compared to the input's, ignoring whitespace and the rewrites listed below. A mismatch leaves the file untouched and reports an error. Files that already contain syntax errors are skipped with a message. |
+
+## Command line
+
+Subcommands, with Prettier-style flags as aliases.
+
+```bash
+prettycsharp format src/
+```
+```bash
+prettycsharp check src/
+```
+```bash
+prettycsharp diff Order.cs
+```
+
+| Subcommand | Flag alias | Behavior |
+| --- | --- | --- |
+| `format` | `--write` | Rewrite files in place |
+| `check` | `--check` | Exit 1 if any file would change. For CI. |
+| `diff` | `--diff` | Print a unified diff, change nothing |
+| (none) | (none) | Print the formatted file to stdout |
+
+## Configuration
+
+Settings are resolved per source file, highest precedence first:
+
+1. Command-line options
+2. `.prettycsharp.toml`, or `[tool.prettycsharp]` in `pyproject.toml`, the nearest one walking
+   up from the source file
+3. `.editorconfig`, standard keys only (mapping below)
+4. Built-in defaults (the tables below)
+
+Every behavior with a setting name below can be overridden. The defaults are one person's
+style, and any team can change any of them.
+
+### .editorconfig mapping
+
+| .editorconfig key | prettycsharp setting |
+| --- | --- |
+| `indent_style`, `indent_size` | `indent_style`, `indent_size` |
+| `max_line_length` | `max_line_length` |
+| `end_of_line` | `end_of_line` |
+| `charset` | `charset` |
+| `insert_final_newline` | `insert_final_newline` |
+| `trim_trailing_whitespace` | `trim_trailing_whitespace` |
+| `csharp_new_line_before_open_brace` | `brace_style` (`all` is `allman`, `none` is `kr`) |
+| `csharp_new_line_before_else`, `_catch`, `_finally` | `continuation_keywords` (`false` is `same_line`) |
+| `dotnet_sort_system_directives_first` | `using_order` (`true` is `system_first`) |
+| `csharp_style_namespace_declarations` | `namespace_style` |
+| `csharp_prefer_braces` | `braces` |
+| `csharp_preferred_modifier_order` | `modifier_order` |
+
+## Defaults
+
+### Whitespace and files
+
+| Setting | Default | Alternatives |
+| --- | --- | --- |
+| `indent_style` | `space` | `tab` |
+| `indent_size` | `4` | any integer |
+| `max_line_length` | `120` | any integer, `0` for no limit |
+| `end_of_line` | `preserve` | `lf`, `crlf` |
+| `charset` | `preserve` (keeps an existing BOM) | `utf-8`, `utf-8-bom` |
+| `insert_final_newline` | `true` | `false` |
+| `trim_trailing_whitespace` | `true` | `false` |
+| `lang_version` | `auto`: read `LangVersion` or the target framework from the `.csproj`; loose files assume the latest C# | a version such as `9` or `12` |
+
+### Braces and continuation keywords
+
+| Setting | Default | Alternatives |
+| --- | --- | --- |
+| `brace_style` | `allman` | `kr`, `mixed` (Allman for types and members, K&R in method bodies) |
+| `continuation_keywords` | `blank_line`: `else`, `else if`, `catch`, `finally`, and a `do` loop's `while` go on their own line after a blank line | `new_line`, `same_line` |
+| `braces` | `preserve` | `always`, `single_line_only` |
+| `empty_bodies` | `inline`: `{ }` on the declaration line | `allman` |
+
+Short auto-property accessors always stay on one line: `public int Id { get; set; }`.
+
+```csharp
+if (order.IsPaid)
+{
+    Send(order);
+}
+
+else
+{
+    Hold(order);
+}
+
+do
+{
+    item = queue.Dequeue();
+}
+
+while (item != null);
+```
+
+### Blank lines
+
+| Setting | Default | Alternatives |
+| --- | --- | --- |
+| `member_blank_lines` | `group_fields`: consecutive fields and auto-properties stay tight, one blank line around methods, constructors, and other members with bodies | `all`, `preserve` |
+| `blank_lines_around_blocks` | `true`: a block statement gets a blank line before and after it, except right after `{` or right before `}` | `false` |
+| `max_blank_lines` | `1`: author's blank lines between plain statements are kept, runs collapse to one | any integer, `0` |
+
+No blank line ever follows `{` or precedes `}`. A comment directly above a block moves with
+it, so the blank line goes above the comment.
+
+```csharp
+public void Ship()
+{
+    var order = Load();
+
+    // Bail out early
+    if (order == null)
+    {
+        return;
+    }
+
+    foreach (var line in order.Lines)
+    {
+        Reserve(line);
+    }
+
+    Send(order);
+}
+```
+
+### Line breaking
+
+| Setting | Default | Alternatives |
+| --- | --- | --- |
+| `argument_wrap` | `one_per_line`: each argument on its own line, `)` on its own line. Also applies to parameter lists. | `one_per_line_close_on_last`, `fill`, `align` |
+| `chain_break_threshold` | `2`: a chain of 2 or more method calls always breaks before each `.`, regardless of length. Property access does not count and stays on the receiver line. | any integer, `0` to break only past `max_line_length` |
+| `expression_body_chain` | `own_line`: a broken chain after `=>` moves to the next line | `hang` |
+| `binary_wrap` | `before_operator_paren_own_line` | `before_operator`, `after_operator` |
+| `ternary_wrap` | `before`: break before `?` and `:` when too long | `after`, `always` |
+| `lambda_body` | `hug`: a multi-line lambda body hangs off the call line | `argument` |
+
+```csharp
+var invoice = invoiceService.CreateInvoice(
+    customer.Id,
+    order.Lines,
+    DateTime.UtcNow,
+    billingAddress,
+    shippingAddress
+);
+
+var total = order.Lines
+    .Where(l => l.IsTaxable)
+    .Sum(l => l.Amount);
+
+public int PaidCount =>
+    Orders
+        .Where(o => o.IsPaid)
+        .Count();
+
+if (
+    order.IsPaid
+    && order.Lines.Count > 0
+    && customer.IsActive
+)
+{
+    Send(order);
+}
+
+var shipping = order.Total > FreeShippingThreshold
+    ? 0m
+    : CalculateShipping(order.Weight, order.Destination, order.Carrier);
+
+orders.ForEach(order =>
+{
+    Validate(order);
+    Send(order);
+});
+```
+
+### Initializers and collections
+
+| Setting | Default | Alternatives |
+| --- | --- | --- |
+| `initializer_break_threshold` | `2`: object initializers, anonymous types, and lists of complex items break at 2 or more members | any integer, `0` to break only past `max_line_length` |
+| `simple_lists_inline` | `true`: lists of literals, constants, and plain names stay on one line when they fit | `false` |
+| `trailing_commas` | `remove` | `add`, `preserve` |
+
+```csharp
+var empty = new Order { Id = 42 };
+
+var point = new Point
+{
+    X = 1,
+    Y = 2
+};
+
+var primes = new List<int> { 2, 3, 5, 7 };
+
+int[] codes = [200, 404];
+```
+
+### Alignment
+
+| Setting | Default | Alternatives |
+| --- | --- | --- |
+| `align_switch_arms` | `true` | `false` |
+| `align_assignments` | `true`: consecutive local assignments and field initializers | `false` |
+| `align_enum_values` | `true` | `false` |
+
+Only the `=` or `=>` aligns. Types and names are not put into columns. A run ends at a blank
+line or at any statement of a different kind.
+
+```csharp
+var id       = order.Id;
+var customer = order.Customer;
+
+var label = status switch
+{
+    Status.Paid    => "Paid",
+    Status.Pending => "Pending",
+    _              => "Unknown"
+};
+
+public enum Status
+{
+    Pending   = 0,
+    Paid      = 1,
+    Cancelled = 2
+}
+```
+
+### Switch statements
+
+| Setting | Default | Alternatives |
+| --- | --- | --- |
+| `switch_case_indent` | `true` | `false` |
+| `switch_case_blank_lines` | `true`: blank line between case sections; stacked fall-through labels stay together | `false` |
+
+### Syntax rewrites
+
+These change tokens, not only whitespace. Verification accounts for each one.
+
+| Setting | Default | Alternatives |
+| --- | --- | --- |
+| `namespace_style` | `file_scoped_if_supported`: file-scoped on C# 10+, block-scoped below | `file_scoped`, `block`, `preserve` |
+| `using_order` | `alphabetical`: pure ordinal sort, `System` not pulled first, no group gaps. `using static` then aliases follow the plain directives. | `system_first`, `system_first_grouped`, `preserve` |
+| `expression_bodies` | `prefer`: single-expression methods, properties, constructors, and setters become `=>`, including `void` ones. A body containing a comment stays a block. | `block`, `properties_only`, `preserve` |
+| `attributes` | `separate`: each attribute on its own line in its own brackets. Parameter attributes stay inline. | `combine`, `preserve` |
+| `modifier_order` | `dotnet`: access, `static`, `extern`, `new`, `virtual`, `abstract`, `sealed`, `override`, `readonly`, `unsafe`, `required`, `volatile`, `async` | `preserve` |
+| `parentheses` | `remove_obvious`: around a whole `return` value, a lone name or literal, or a whole condition. Precedence-clarifying parentheses stay. | `remove_redundant`, `preserve` |
+| `regions` | `preserve` | `remove`, `normalize` |
+
+### Comments
+
+| Setting | Default | Alternatives |
+| --- | --- | --- |
+| `comment_space` | `true`: `//text` becomes `// text`. `////` and `//---` banners are left alone. | `false` |
+| `comment_wrap` | `true`: rewrap long `//` comments to `max_line_length` | `false` |
+
+Comment text is otherwise never changed. A comment is not rewrapped when it looks like
+commented-out code (ends in `;`, `{`, or `}`, or contains `=>`), contains a URL, is a list line
+(`- `, `* `, `1. `), or is a `TODO:` line in a multi-line block. XML doc comments (`///`) are
+only reindented.
+
+## Skipping files and regions
+
+On by default:
+
+- `bin/`, `obj/`, `*.g.cs`, `*.Designer.cs`, and files marked `// <auto-generated>`
+- Paths matched by `.gitignore` (`respect_gitignore = true`)
+- Paths matched by `.prettycsharpignore`, gitignore syntax
+- `// prettycsharp-ignore` leaves the next statement or member untouched
+- `// prettycsharp-ignore-start` through `// prettycsharp-ignore-end` leaves a range untouched

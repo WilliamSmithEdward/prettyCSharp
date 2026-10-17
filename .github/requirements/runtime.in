@@ -1,0 +1,8 @@
+# The runtime dependencies as a user's install resolves them today, for the
+# Security workflow's dependency audit. pyproject.toml asks for ranges; this
+# pins the releases PyPI serves now, and Dependabot moves them daily, so the
+# audit follows what a fresh install gets. Compiled for the oldest Python
+# the package supports:
+#   uv pip compile runtime.in --universal --generate-hashes --python-version 3.10 -o runtime.txt
+tree-sitter==0.26.0
+tree-sitter-c-sharp==0.23.5
