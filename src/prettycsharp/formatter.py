@@ -10,9 +10,10 @@ crashing the interpreter.
 from __future__ import annotations
 
 import dataclasses
+import functools
 import sys
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import TypeVar
 
 from prettycsharp import conditional
@@ -80,23 +81,57 @@ def _format(source: str, settings: Settings, lang_version: float) -> FormatResul
         syntax_error = error
     # Neither rewrite may move a namespace's braces across hidden lines.
     hiding = dataclasses.replace(settings, namespace_style="preserve")
+    around = settings.syntax_errors == "format_around"
     if conditional.has_conditionals(source):
-        # The #if branches together are not valid C#: format one view at a time.
+        # The #if branches together are not valid C#: format one view at a time,
+        # and with format_around, within a view, around the lines it cannot read.
+        kept: list[str] = []
         try:
             result = conditional.format_conditional(
-                source, lambda text: _format_parsed(text, hiding, lang_version), _same_view
+                source,
+                functools.partial(_format_view, settings=hiding, lang_version=lang_version, around=around, kept=kept),
+                functools.partial(_same_view, around=around),
+                _usable_around if around else conditional.parses,
             )
         except conditional.BranchChanged as error:
             raise FormattingError(str(error)) from None
         except conditional.ConditionalError:
             raise syntax_error from None
         if result is not None:
-            return FormatResult(result)
-    if settings.syntax_errors == "format_around":
-        around = _format_around(source, hiding, lang_version)
-        if around is not None:
-            return around
+            return FormatResult(result, _source_rows(source, kept))
+    if around:
+        whole = _format_around(source, hiding, lang_version)
+        if whole is not None:
+            return whole
     raise syntax_error
+
+
+def _format_view(text: str, *, settings: Settings, lang_version: float, around: bool, kept: list[str]) -> str:
+    """Format one view of an #if-split file, around unreadable lines if allowed."""
+    try:
+        return _format_parsed(text, settings, lang_version)
+    except CSharpSyntaxError:
+        if not around:
+            raise
+    masked = isolate(text)
+    if masked is None:
+        raise CSharpSyntaxError(1, 1)
+    formatted = _format_parsed(masked.text, settings, lang_version)
+    if _placements(masked.text) != _placements(formatted):
+        raise FormattingError("a line the parser cannot read would move")
+    kept.extend(masked.hidden.values())
+    return conditional.restore(formatted, masked.hidden, reindent=True, nested=True)
+
+
+def _usable_around(text: str) -> bool:
+    """A view that parses, or would once its fewest unreadable lines are hidden."""
+    return conditional.parses(text) or isolate(text) is not None
+
+
+def _source_rows(source: str, kept: list[str]) -> tuple[int, ...]:
+    """The source lines (1-based) whose text was left as written in some view."""
+    texts = {line.strip() for hidden in kept for line in hidden.splitlines() if line.strip()}
+    return tuple(number for number, line in enumerate(source.splitlines(), start=1) if line.strip() in texts)
 
 
 def _format_around(source: str, settings: Settings, lang_version: float) -> FormatResult | None:
@@ -138,12 +173,28 @@ def _placements(text: str) -> list[tuple[str, str, str]]:
     return out
 
 
-def _same_view(before: str, after: str) -> bool:
-    """Whether two views of a file, with the same branches hidden, are the same code."""
+def _same_view(before: str, after: str, *, around: bool = False) -> bool:
+    """Whether two views of a file, with the same branches hidden, are the same code.
+
+    With ``around``, views that hold unreadable lines are compared with those
+    lines hidden in both, and the hidden lines must match apart from indentation.
+    """
     try:
         old, new = build(before), build(after)
     except CSharpSyntaxError:
-        return False
+        if not around:
+            return False
+        first = isolate(before)
+        if first is None:
+            return False
+        # The same lines, found by their text, are hidden in the formatted view.
+        second = _hide_matching(after, _stripped(first.hidden.values()))
+        if second is None:
+            return False
+        try:
+            old, new = build(first.text), build(second.text)
+        except CSharpSyntaxError:
+            return False
     if canonical(old.root) != canonical(new.root):
         return False
     # Hidden text differs between the views by design: it was formatted in its own view.
@@ -208,3 +259,21 @@ def _run_with_big_stack(work: Callable[[], T]) -> T:
     if failure:
         raise failure[0]
     return result[0]
+
+
+def _stripped(texts: Iterable[str]) -> list[str]:
+    return [line.strip() for text in texts for line in text.splitlines()]
+
+
+def _hide_matching(text: str, wanted: list[str]) -> conditional.Masked | None:
+    """Hide the lines of ``text`` whose stripped text is ``wanted``, in order; None if any is missing."""
+    lines = conditional._split_lines(text)
+    keep = [True] * len(lines)
+    position = 0
+    for number, line in enumerate(lines):
+        if position < len(wanted) and line.strip() == wanted[position]:
+            keep[number] = False
+            position += 1
+    if position != len(wanted):
+        return None
+    return conditional.hide(lines, keep, salt="isolate:")

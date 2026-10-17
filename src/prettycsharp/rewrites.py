@@ -733,6 +733,9 @@ def remove_trailing_commas(root: Node) -> None:
         close = node.children[-1]
         if comma.text != "," or comma.named or close.text not in ("}", "]"):
             continue
+        if any(is_placeholder(c.text) for c in [*comma.trailing, *close.leading]):
+            # Hidden lines follow: in another #if view the comma separates items.
+            continue
         before = node.children[-3].last_token()
         if before is None:
             continue

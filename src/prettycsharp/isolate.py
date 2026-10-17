@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from tree_sitter import Node as TSNode
 
-from prettycsharp.conditional import Masked, _content, _directive, _split_lines, hide
+from prettycsharp.conditional import Masked, _content, _directive, _split_lines, hide, is_placeholder
 from prettycsharp.parsing import parse_tree
 
 # Limits that keep the search quick on any file.
@@ -38,7 +38,7 @@ def isolate(source: str) -> Masked | None:
         if count == 0:
             if all(keep) or not _worth_it(lines, keep):
                 return None
-            masked = hide(lines, keep, reindent=True)
+            masked = hide(lines, keep, reindent=True, salt="isolate:")
             masked.hidden_rows = tuple(number + 1 for number, kept in enumerate(keep) if not kept)
             return masked
         if span is None:
@@ -80,8 +80,12 @@ def _worth_it(lines: list[str], keep: list[bool]) -> bool:
 
 
 def _protected(line: str) -> bool:
-    """#if, #elif, #else and #endif lines hold the branches together: never hidden."""
-    found = _directive(_content(line))
+    """Lines never hidden: #if, #elif, #else and #endif hold the branches
+    together, and a placeholder already stands for hidden text."""
+    content = _content(line)
+    if is_placeholder(content):
+        return True
+    found = _directive(content)
     return found is not None and found[0] in ("if", "elif", "else", "endif")
 
 

@@ -219,11 +219,13 @@ def mask(source: str, defined: Iterable[str]) -> Masked:
     return masked
 
 
-def hide(lines: Sequence[str], keep: Sequence[bool], *, reindent: bool = False) -> Masked:
+def hide(lines: Sequence[str], keep: Sequence[bool], *, reindent: bool = False, salt: str = "") -> Masked:
     """Replace each run of lines not kept by one placeholder comment line.
 
-    ``lines`` keep their line breaks. With ``reindent``, ``restore`` moves the
-    hidden lines to the indentation their placeholder was printed at.
+    ``lines`` keep their line breaks. ``salt`` keeps the ids of a second
+    hiding, inside text already hidden once, apart from the first. With
+    ``reindent``, ``restore`` moves the hidden lines to the indentation their
+    placeholder was printed at.
     """
     out: list[str] = []
     hidden: dict[str, str] = {}
@@ -234,7 +236,7 @@ def hide(lines: Sequence[str], keep: Sequence[bool], *, reindent: bool = False) 
             return
         text = "".join(run)
         # The position makes two runs with the same text distinct.
-        identifier = hashlib.sha256(f"{len(hidden)}:{text}".encode()).hexdigest()[:16]
+        identifier = hashlib.sha256(f"{salt}{len(hidden)}:{text}".encode()).hexdigest()[:16]
         hidden[identifier] = text.rstrip("\r\n")
         out.append(f"//#prettycsharp-hidden {identifier}{line_break}")
         run.clear()
@@ -254,19 +256,20 @@ def _line_break(line: str) -> str:
     return line[len(content) :] or "\n"
 
 
-def restore(text: str, hidden: dict[str, str], *, reindent: bool = False) -> str:
+def restore(text: str, hidden: dict[str, str], *, reindent: bool = False, nested: bool = False) -> str:
     """Put back the text each placeholder line stands for.
 
     With ``reindent``, hidden lines move to the indentation their placeholder
     was printed at, unless they could hold a multi-line string, whose
-    content must not change.
+    content must not change. With ``nested``, placeholders of an outer
+    hiding are left for its own restore.
     """
     seen: set[str] = set()
     out: list[str] = []
     for line in _split_lines(text):
         content = _content(line)
         match = _PLACEHOLDER.match(content)
-        if match is None:
+        if match is None or (nested and match.group(1) not in hidden):
             out.append(line)
             continue
         identifier = match.group(1)
@@ -337,8 +340,16 @@ def branches(source: str) -> set[int]:
     return found
 
 
-def covering_sets(source: str) -> list[frozenset[str]]:
-    """Symbol sets whose masked text parses and that together reach every branch they can."""
+def parses(text: str) -> bool:
+    try:
+        parse(text)
+    except CSharpSyntaxError:
+        return False
+    return True
+
+
+def covering_sets(source: str, usable: Callable[[str], bool] = parses) -> list[frozenset[str]]:
+    """Symbol sets whose masked text is ``usable`` and that together reach every branch they can."""
     wanted = branches(source)
     chosen: list[frozenset[str]] = []
     covered: set[int] = set()
@@ -349,9 +360,7 @@ def covering_sets(source: str) -> list[frozenset[str]]:
         new = masked.active_branches - covered
         if chosen and not new:
             continue
-        try:
-            parse(masked.text)
-        except CSharpSyntaxError:
+        if not usable(masked.text):
             continue
         chosen.append(candidate)
         covered |= masked.active_branches
@@ -361,16 +370,19 @@ def covering_sets(source: str) -> list[frozenset[str]]:
 
 
 def format_conditional(
-    source: str, format_masked: Callable[[str], str], same_code: Callable[[str, str], bool]
+    source: str,
+    format_masked: Callable[[str], str],
+    same_code: Callable[[str, str], bool],
+    usable: Callable[[str], bool] = parses,
 ) -> str | None:
     """Format each symbol set's view of the file in turn.
 
-    Returns None when no symbol set gives text that parses. Raises
-    ConditionalError when the result, seen through any of the symbol sets
-    used, is not the same code as the source (``same_code`` compares two
-    masked texts).
+    Returns None when no symbol set gives text that is ``usable`` (parses,
+    by default). Raises ConditionalError when the result, seen through any
+    of the symbol sets used, is not the same code as the source
+    (``same_code`` compares two masked texts).
     """
-    sets = covering_sets(source)
+    sets = covering_sets(source, usable)
     if not sets:
         return None
     text = source
