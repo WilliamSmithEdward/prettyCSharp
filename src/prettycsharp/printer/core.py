@@ -241,6 +241,9 @@ class Core:
         parts: list[Doc] = []
         if first.leading:
             parts.append(self.leading_comments(first))
+        if first.column == 0 and (first.text or "").startswith("#") and first.text not in ("#region", "#endregion"):
+            # A directive written at column 0 stays there.
+            parts.append(TRIM_INDENT)
         # Exactly as written, line breaks and trailing spaces included: they
         # may be inside a multi-line string.
         parts.append(self.multiline_token(text) if ("\n" in text or "\r" in text) else text)
@@ -344,10 +347,13 @@ class Core:
         return None
 
     def is_column_zero_directive(self, node: Node) -> bool:
-        if node.type not in DIRECTIVE_TYPES or node.type in ("preproc_region", "preproc_endregion"):
-            return False
+        """A directive written at column 0, or a verbatim item that starts with one."""
         first = node.first_token()
-        return first is not None and first.column == 0 and not first.leading
+        if first is None or first.column != 0 or first.leading:
+            return False
+        if node.verbatim and node.type not in DIRECTIVE_TYPES:
+            return (first.text or "").startswith("#") and first.text not in ("#region", "#endregion")
+        return node.type in DIRECTIVE_TYPES and node.type not in ("preproc_region", "preproc_endregion")
 
     def print_list(
         self,

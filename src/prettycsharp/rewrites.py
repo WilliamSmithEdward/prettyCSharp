@@ -519,6 +519,9 @@ def _property_arrow_to_getter(node: Node) -> None:
     arrow = node.child("value")
     if arrow is None or arrow.type != "arrow_expression_clause" or len(arrow.children) != 2:
         return
+    if arrow.children[0].leading or arrow.children[0].trailing:
+        # A comment (or a hidden #if line) before the arrow stays where it is.
+        return
     index = node.children.index(arrow)
     after = node.children[index + 1 :]
     if [c.text for c in after] != [";"]:

@@ -231,3 +231,59 @@ def test_a_damaged_branch_is_refused(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(conditional, "restore", damaging)
     with pytest.raises(FormattingError, match="branch"):
         format_source("#if NET\nclass C : IAsyncDisposable\n#else\nclass C\n#endif\n{ }\n")
+
+
+def test_property_split_between_arrow_and_accessors_under_block_bodies() -> None:
+    check(
+        """
+        interface I
+        {
+            bool Ignored
+        #if NET8_0_OR_GREATER
+                => false;
+        #else
+            {
+                get;
+            }
+        #endif
+        }
+        """,
+        """
+        interface I
+        {
+            bool Ignored
+        #if NET8_0_OR_GREATER
+            => false;
+        #else
+            { get; }
+        #endif
+        }
+        """,
+        expression_bodies="block",
+    )
+
+
+def test_directive_after_a_doc_comment_stays_at_column_zero() -> None:
+    check(
+        """
+        static class C
+        {
+            /// <summary>Humanizes.</summary>
+        #if NET6_0_OR_GREATER
+            [RequiresDynamicCode("x")]
+        #endif
+            public static string H(this Enum input) => input.ToString();
+        }
+        """,
+        """
+        static class C
+        {
+            /// <summary>Humanizes.</summary>
+        #if NET6_0_OR_GREATER
+            [RequiresDynamicCode("x")]
+        #endif
+            public static string H(this Enum input) => input.ToString();
+        }
+        """,
+        attributes="combine",
+    )
