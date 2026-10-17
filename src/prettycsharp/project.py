@@ -9,11 +9,15 @@ from __future__ import annotations
 import re
 from functools import cache
 from pathlib import Path
-from xml.etree.ElementTree import Element
+from typing import Any
 
 from defusedxml import ElementTree
 
 from prettycsharp.ignore import glob_regex
+
+# The parsed XML element. Only defusedxml parses here, and it has no type
+# information, so elements are typed loosely rather than imported from xml.
+Element = Any
 
 LATEST = 99.0
 
