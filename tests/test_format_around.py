@@ -63,6 +63,45 @@ def test_genuinely_broken_code_that_no_line_rescues_is_still_refused() -> None:
         format_source("class {\n{\n{\n", AROUND)
 
 
+SPLIT_AND_NEW = """#if NET
+public sealed class Pool : IAsyncDisposable
+#else
+public sealed class Pool : IDisposable
+#endif
+{
+    static public int Size=3;
+    void M()
+    {
+        a?.B = 1;
+        Run( );
+    }
+}
+"""
+
+
+def test_format_around_works_inside_each_if_view() -> None:
+    result = format_details(SPLIT_AND_NEW, AROUND)
+    assert result.text == (
+        "#if NET\npublic sealed class Pool : IAsyncDisposable\n#else\npublic sealed class Pool : IDisposable\n#endif\n"
+        "{\n    public static int Size = 3;\n\n    void M()\n    {\n        a?.B = 1;\n        Run();\n    }\n}\n"
+    )
+    assert result.kept_lines == (10,)
+    assert format_source(result.text, AROUND) == result.text
+
+
+def test_split_and_new_syntax_is_still_skipped_by_default() -> None:
+    with pytest.raises(CSharpSyntaxError):
+        format_source(SPLIT_AND_NEW)
+
+
+def test_one_line_member_with_new_syntax_keeps_only_that_line() -> None:
+    source = SPLIT_AND_NEW.replace("    void M()\n    {\n        a?.B = 1;\n        Run( );\n    }\n", "    void M() { a?.B = 1; Run( ); }\n")
+    result = format_details(source, AROUND)
+    assert "    public static int Size = 3;" in result.text
+    assert "    void M() { a?.B = 1; Run( ); }" in result.text
+    assert result.kept_lines == (8,)
+
+
 def test_command_line_reports_the_kept_lines(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     path = tmp_path / "C.cs"
     path.write_text(NEW_SYNTAX)

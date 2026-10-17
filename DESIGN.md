@@ -344,8 +344,14 @@ file is formatted one view at a time (`conditional.py`):
    untouched.
 
 In this mode no rewrite moves code across a directive: the namespace style
-is left as it is, a using never moves past a directive, and modifiers split
-by one keep their order.
+is left as it is, a using never moves past a directive, modifiers split by
+one keep their order, and a comma with hidden lines between it and the
+closing brace is not taken for a trailing comma.
+
+With `syntax_errors = "format_around"` (below), a view that does not parse
+is still used when hiding its fewest unreadable lines makes it parse: the
+view is formatted around those lines, and the final check hides the same
+lines, found by their text, in the view of the source and of the result.
 
 ## Code the parser cannot read
 
@@ -370,5 +376,6 @@ format; otherwise the file is skipped as before.
 ## Limits
 
 A file still is not formatted when no view of its `#if` branches parses and,
-with `format_around`, hiding lines does not make it parse either, as when an
-`#if` stands inside an expression.
+with `format_around`, hiding lines makes neither a view nor the whole file
+parse. Lines are hidden whole, so a one-line member that holds unreadable
+syntax is kept as written in full.

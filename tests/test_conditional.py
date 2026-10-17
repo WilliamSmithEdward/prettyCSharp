@@ -233,6 +233,50 @@ def test_a_damaged_branch_is_refused(monkeypatch: pytest.MonkeyPatch) -> None:
         format_source("#if NET\nclass C : IAsyncDisposable\n#else\nclass C\n#endif\n{ }\n")
 
 
+def test_comma_before_a_hidden_branch_is_not_a_trailing_comma() -> None:
+    check(
+        """
+        class C
+        {
+        #if NET
+            class D : I
+        #else
+            class D
+        #endif
+            {
+            }
+            static readonly HashSet<Type> Types = new()
+            {
+                typeof(Guid), typeof(Uri),
+        #if DATE_ONLY
+                typeof(DateOnly)
+        #endif
+            };
+        }
+        """,
+        """
+        class C
+        {
+        #if NET
+            class D : I
+        #else
+            class D
+        #endif
+            { }
+
+            static readonly HashSet<Type> Types = new()
+            {
+                typeof(Guid),
+                typeof(Uri),
+        #if DATE_ONLY
+                typeof(DateOnly)
+        #endif
+            };
+        }
+        """,
+    )
+
+
 def test_property_split_between_arrow_and_accessors_under_block_bodies() -> None:
     check(
         """

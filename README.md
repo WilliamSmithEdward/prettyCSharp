@@ -201,8 +201,9 @@ and names the lines it kept:
 prettycsharp format src/ -o syntax_errors=format_around
 ```
 
-A file is still left untouched when hiding lines does not make it parse, as
-when an `#if` stands inside an expression.
+This works together with conditional compilation: in a file split by `#if`,
+each view is formatted around its own unreadable lines. A file is still left
+untouched when hiding lines does not make it parse.
 
 ## License
 

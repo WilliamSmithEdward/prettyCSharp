@@ -2,6 +2,19 @@
 
 Each release's section becomes the body of its GitHub release.
 
+## [Unreleased]
+
+- `syntax_errors = "format_around"` now works inside each view of a file
+  split by `#if`: a view that does not parse is formatted around its own
+  unreadable lines, so both branches of a split class header are formatted
+  even when a method holds syntax newer than the parser. Before, the
+  fallback ran on the whole file and kept the branch lines as written.
+- A comma followed only by hidden `#if` lines before the closing brace is no
+  longer removed as a trailing comma, since in another view it separates
+  items. Files like this were skipped before; on ten open-source
+  repositories the default settings now skip 11 files instead of 14, and
+  `format_around` skips 2.
+
 ## [1.1.0] - 2026-10-17
 
 - Files whose `#if` branches split a declaration or statement, such as a
