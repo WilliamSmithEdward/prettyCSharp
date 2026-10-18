@@ -707,6 +707,26 @@ def test_obvious_parentheses_are_removed_and_clarifying_ones_kept() -> None:
     )
 
 
+def test_nullable_array_types_stay_tight() -> None:
+    source = (
+        "void M(params object?[]? values) { }\n"
+        "\n"
+        "int?[] a = new int?[3];\n"
+        "List<string?[]> b = (string?[][])o;\n"
+        "var c = x is int?[] d;\n"
+        "var e = f ? [1] : [2];\n"
+        "var g = h?[i];\n"
+    )
+    assert fmt(source) == source
+
+
+def test_spread_elements_are_spaced_and_ranges_are_not() -> None:
+    assert fmt("x = [..entries, 1, ..more];\n") == "x = [.. entries, 1, .. more];\n"
+    assert fmt("var r = entries[1..] + entries[..2] + entries[..];\n") == (
+        "var r = entries[1..] + entries[..2] + entries[..];\n"
+    )
+
+
 def test_empty_body_after_a_header_that_spans_lines_gets_its_own_line() -> None:
     # Visual Studio (IDE0055) keeps `{ }` on the header's line only when the
     # header is one line.

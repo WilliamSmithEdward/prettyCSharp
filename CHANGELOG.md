@@ -2,6 +2,12 @@
 
 Each release's section becomes the body of its GitHub release.
 
+## [Unreleased]
+
+- Nullable array types print tight, `object?[]?`, instead of
+  `object? []?`, and spread elements are spaced, `[.. items]`, as Visual
+  Studio formats them (IDE0055). Ranges such as `items[..2]` stay tight.
+
 ## [1.1.4] - 2026-10-17
 
 - An empty body `{ }` after a header that spans lines goes on its own line,
