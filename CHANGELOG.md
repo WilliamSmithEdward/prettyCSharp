@@ -2,7 +2,7 @@
 
 Each release's section becomes the body of its GitHub release.
 
-## [Unreleased]
+## [1.1.4] - 2026-10-17
 
 - An empty body `{ }` after a header that spans lines goes on its own line,
   as Visual Studio formats it. Before, `) { }` after a broken parameter
