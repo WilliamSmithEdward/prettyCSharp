@@ -233,12 +233,14 @@ int[] codes = [200, 404];
 
 | Setting | Default | Alternatives |
 | --- | --- | --- |
-| `align_switch_arms` | `true` | `false` |
-| `align_assignments` | `true`: consecutive local assignments and field initializers | `false` |
-| `align_enum_values` | `true` | `false` |
+| `align_switch_arms` | `false`: one space before each arm's `=>` | `true` |
+| `align_assignments` | `false`: one space before each `=` | `true`: consecutive local assignments and field initializers |
+| `align_enum_values` | `false`: one space before each `=` | `true` |
 
-Only the `=` or `=>` aligns. Types and names are not put into columns. A run ends at a blank
-line or at any statement of a different kind.
+By default nothing is padded into columns: alignment shifts whenever one line
+changes, and the diff touches every line of the run. Turned on, only the `=`
+or `=>` aligns; types and names are not put into columns, and a run ends at a
+blank line or at any statement of a different kind:
 
 ```csharp
 var id       = order.Id;

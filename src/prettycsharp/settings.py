@@ -70,9 +70,9 @@ class Settings:
     simple_lists_inline: bool = True
     trailing_commas: str = "remove"
 
-    align_switch_arms: bool = True
-    align_assignments: bool = True
-    align_enum_values: bool = True
+    align_switch_arms: bool = False
+    align_assignments: bool = False
+    align_enum_values: bool = False
 
     switch_case_indent: bool = True
     switch_case_blank_lines: bool = True

@@ -131,7 +131,6 @@ def test_single_call_and_property_chains_stay_on_one_line() -> None:
         var city = order.Customer.Address.City;
         var zip = order.Customer.Address.GetPostalCode();
         """,
-        align_assignments=False,
     )
 
 
@@ -230,7 +229,7 @@ def test_fields_grouped_tight_and_blank_lines_around_members_with_bodies() -> No
 
             public Order(int id, string name)
             {
-                _id   = id;
+                _id = id;
                 _name = name;
             }
 
@@ -429,7 +428,6 @@ def test_simple_value_lists_stay_inline_and_complex_ones_break() -> None:
             new Point(1, 1)
         };
         """,
-        align_assignments=False,
     )
 
 
@@ -513,7 +511,35 @@ def test_switch_sections_are_indented_with_blank_lines_between() -> None:
     )
 
 
-def test_switch_expression_arms_align_their_arrows() -> None:
+def test_nothing_is_padded_into_columns() -> None:
+    check(
+        """
+        var label = status switch { Status.Paid => "Paid", Status.Pending => "Pending", _ => "Unknown" };
+        var id   = order.Id;
+        var customer = order.Customer;
+        public enum Status { Pending   = 0, Paid = 1, Cancelled = 2 }
+        """,
+        """
+        var label = status switch
+        {
+            Status.Paid => "Paid",
+            Status.Pending => "Pending",
+            _ => "Unknown"
+        };
+        var id = order.Id;
+        var customer = order.Customer;
+
+        public enum Status
+        {
+            Pending = 0,
+            Paid = 1,
+            Cancelled = 2
+        }
+        """,
+    )
+
+
+def test_switch_expression_arms_align_when_turned_on() -> None:
     check(
         """
         var label = status switch { Status.Paid => "Paid", Status.Pending => "Pending", _ => "Unknown" };
@@ -526,10 +552,11 @@ def test_switch_expression_arms_align_their_arrows() -> None:
             _              => "Unknown"
         };
         """,
+        align_switch_arms=True,
     )
 
 
-def test_consecutive_assignments_and_enum_values_align() -> None:
+def test_assignments_and_enum_values_align_when_turned_on() -> None:
     check(
         """
         var id = order.Id;
@@ -551,6 +578,8 @@ def test_consecutive_assignments_and_enum_values_align() -> None:
             Cancelled = 2
         }
         """,
+        align_assignments=True,
+        align_enum_values=True,
     )
 
 
@@ -797,7 +826,6 @@ def test_raw_and_verbatim_strings_are_untouched() -> None:
             """;
         var path = @"C:\\orders\\  ";
         ''',
-        align_assignments=False,
     )
 
 
