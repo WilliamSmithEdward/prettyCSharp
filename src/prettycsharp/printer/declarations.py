@@ -399,7 +399,7 @@ class Declarations(Statements):
         return [
             self.open_brace("type"),
             self.tok(open_tok),
-            indent([HARDLINE, lines]),
+            indent([HARDLINE, lines]) if lines else "",
             self.close_comments(close_tok),
             HARDLINE,
             self.tok(close_tok, leading=False),
@@ -522,10 +522,13 @@ class Declarations(Statements):
             return [" ", self.tok(open_tok), " ", join(" ", [self.print(a) for a in accessors]), " ", self.tok(close_tok)]
         if not accessors and not close_tok.leading:
             return [" ", self.tok(open_tok), " ", self.tok(close_tok)]
+        body: Doc = ""
+        if accessors:
+            body = indent([HARDLINE, self.print_list(accessors, lambda a, b: self.has_blank_before(b))])
         return [
             self.open_brace("accessor"),
             self.tok(open_tok),
-            indent([HARDLINE, self.print_list(accessors, lambda a, b: self.has_blank_before(b))]),
+            body,
             self.close_comments(close_tok),
             HARDLINE,
             self.tok(close_tok, leading=False),

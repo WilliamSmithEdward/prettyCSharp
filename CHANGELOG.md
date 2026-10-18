@@ -2,6 +2,11 @@
 
 Each release's section becomes the body of its GitHub release.
 
+## [Unreleased]
+
+- A property's accessor list or an enum that holds only a comment no longer
+  gains a blank line each time the file is formatted. Found by fuzzing.
+
 ## [1.1.2] - 2026-10-17
 
 - Nothing is padded into columns by default any more: `align_assignments`,
