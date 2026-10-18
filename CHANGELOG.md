@@ -2,6 +2,12 @@
 
 Each release's section becomes the body of its GitHub release.
 
+## [1.1.6] - 2026-10-18
+
+- `for` headers keep a space between semicolons when the condition is
+  omitted, such as `for (var start = 0; ;)`, avoiding Visual Studio's
+  IDE0055 formatting diagnostic. Fully empty headers print `for (; ; )`.
+
 ## [1.1.5] - 2026-10-18
 
 - Nullable array types print tight, `object?[]?`, instead of

@@ -1,6 +1,28 @@
 """The default layout, one DESIGN.md decision per test."""
 
+import pytest
+
 from support import check, fmt
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        (";;", "; ; "),
+        ("int i=0;;", "int i = 0; ;"),
+        (";i<10;", "; i < 10;"),
+        (";;i++", "; ; i++"),
+        ("int i=0;i<10;", "int i = 0; i < 10;"),
+        ("int i=0;;i++", "int i = 0; ; i++"),
+        (";i<10;i++", "; i < 10; i++"),
+        ("int i=0;i<10;i++", "int i = 0; i < 10; i++"),
+        ("int i=0,j=1;;i++,j--", "int i = 0, j = 1; ; i++, j--"),
+        ("var start=query[0]=='?'?1:0;;", "var start = query[0] == '?' ? 1 : 0; ;"),
+        ("int i=0;/* condition omitted */;", "int i = 0; /* condition omitted */ ;"),
+    ],
+)
+def test_for_header_spacing_with_omitted_clauses(source: str, expected: str) -> None:
+    check(f"for({source}){{break;}}", f"for ({expected})\n{{\n    break;\n}}\n")
 
 
 def test_allman_braces_with_blank_line_before_continuations() -> None:
