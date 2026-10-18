@@ -2,7 +2,7 @@
 
 Each release's section becomes the body of its GitHub release.
 
-## [Unreleased]
+## [1.1.5] - 2026-10-18
 
 - Nullable array types print tight, `object?[]?`, instead of
   `object? []?`, and spread elements are spaced, `[.. items]`, as Visual
