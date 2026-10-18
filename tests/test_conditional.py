@@ -87,6 +87,106 @@ def test_covering_sets_reach_every_branch() -> None:
     assert frozenset({"B"}) in sets
 
 
+def test_no_blank_lines_next_to_conditional_directives() -> None:
+    # The first parses whole; the second splits a class header, so each view
+    # is formatted on its own.
+    check(
+        """
+        class C
+        {
+            int a;
+
+        #if X
+
+            int b;
+
+        #else
+
+            int c;
+
+        #endif
+
+            void M() { A();
+
+        #if DEBUG
+                Log();
+        #endif
+
+                B(); }
+
+        #if X
+            [A]
+        #endif
+            void N() { }
+        }
+        """,
+        """
+        class C
+        {
+            int a;
+        #if X
+            int b;
+        #else
+            int c;
+        #endif
+            void M()
+            {
+                A();
+        #if DEBUG
+                Log();
+        #endif
+                B();
+            }
+        #if X
+            [A]
+        #endif
+            void N() { }
+        }
+        """,
+    )
+    check(
+        """
+        #if NET
+
+        class A : B
+        {
+
+        #else
+
+        class A
+        {
+
+        #endif
+
+            int a;
+
+        #if X
+
+            int b;
+
+        #endif
+
+            void M() { }
+        }
+        """,
+        """
+        #if NET
+        class A : B
+        {
+        #else
+        class A
+        {
+        #endif
+            int a;
+        #if X
+            int b;
+        #endif
+            void M() { }
+        }
+        """,
+    )
+
+
 def test_split_class_header_formats_every_branch() -> None:
     check(
         """
@@ -120,7 +220,6 @@ def test_split_class_header_formats_every_branch() -> None:
         #endif
             {
                 public static int Size = 3;
-
         #if NET10_0_OR_GREATER
                 public ValueTask DisposeAsync() => ValueTask.CompletedTask;
         #else
@@ -194,7 +293,6 @@ def test_usings_do_not_move_across_directives() -> None:
         #endif
         using Beta;
         using Gamma;
-
         #if NET
         class C : I
         #else

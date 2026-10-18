@@ -369,18 +369,53 @@ def covering_sets(source: str, usable: Callable[[str], bool] = parses) -> list[f
     return chosen
 
 
+def tighten(text: str, hidden: dict[str, str]) -> str:
+    """Drop the blank lines next to conditional directive lines behind placeholders.
+
+    A placeholder whose hidden text starts with #if, #elif, #else or #endif
+    loses the blank lines above it; one whose hidden text ends with one loses
+    the blank lines below it.
+    """
+    lines = _split_lines(text)
+    drop: set[int] = set()
+    for number, line in enumerate(lines):
+        match = _PLACEHOLDER.match(_content(line))
+        if match is None or match.group(1) not in hidden:
+            continue
+        rows = hidden[match.group(1)].splitlines()
+        if _conditional(rows[0]):
+            above = number - 1
+            while above >= 0 and not _content(lines[above]).strip():
+                drop.add(above)
+                above -= 1
+        if _conditional(rows[-1]):
+            below = number + 1
+            while below < len(lines) and not _content(lines[below]).strip():
+                drop.add(below)
+                below += 1
+    return "".join(line for number, line in enumerate(lines) if number not in drop)
+
+
+def _conditional(line: str) -> bool:
+    found = _directive(line)
+    return found is not None and found[0] in ("if", "elif", "else", "endif")
+
+
 def format_conditional(
     source: str,
     format_masked: Callable[[str], str],
     same_code: Callable[[str, str], bool],
     usable: Callable[[str], bool] = parses,
+    *,
+    tight: bool = False,
 ) -> str | None:
     """Format each symbol set's view of the file in turn.
 
     Returns None when no symbol set gives text that is ``usable`` (parses,
     by default). Raises ConditionalError when the result, seen through any
     of the symbol sets used, is not the same code as the source
-    (``same_code`` compares two masked texts).
+    (``same_code`` compares two masked texts). With ``tight``, blank lines
+    next to conditional directives are dropped.
     """
     sets = covering_sets(source, usable)
     if not sets:
@@ -388,7 +423,10 @@ def format_conditional(
     text = source
     for symbols in sets:
         masked = mask(text, symbols)
-        text = restore(format_masked(masked.text), masked.hidden)
+        formatted = format_masked(masked.text)
+        if tight:
+            formatted = tighten(formatted, masked.hidden)
+        text = restore(formatted, masked.hidden)
     for symbols in sets:
         if not same_code(mask(source, symbols).text, mask(text, symbols).text):
             raise BranchChanged("a branch of an #if would change in meaning")

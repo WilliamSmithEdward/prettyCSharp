@@ -315,6 +315,12 @@ def test_comment_space_and_wrap_off() -> None:
     )
 
 
+def test_directive_blank_lines_preserve() -> None:
+    source = "class C\n{\n    int a;\n\n#if X\n\n    int b;\n\n#endif\n\n    int c;\n}\n"
+    assert fmt(source, directive_blank_lines="preserve") == source
+    assert fmt(source) == "class C\n{\n    int a;\n#if X\n    int b;\n#endif\n    int c;\n}\n"
+
+
 def test_max_blank_lines_zero() -> None:
     assert fmt("void M() { A();\n\n B(); }\n", max_blank_lines=0) == "void M()\n{\n    A();\n    B();\n}\n"
 

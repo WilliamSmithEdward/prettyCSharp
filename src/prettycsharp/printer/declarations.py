@@ -71,6 +71,8 @@ class Declarations(Statements):
         return parts
 
     def top_blank(self, previous: Node, item: Node) -> bool:
+        if self.tight_directive(previous, item):
+            return False
         if previous.type == "file_scoped_namespace_declaration":
             return self.settings.max_blank_lines > 0
         if previous.type in DIRECTIVE_TYPES or item.type in DIRECTIVE_TYPES:
@@ -141,7 +143,8 @@ class Declarations(Statements):
             node.text is not None and node.text.startswith("#") and node.column == 0 and not node.leading
         )
         line: Doc = HARDLINE
-        if self.has_blank_before(node):
+        # Every line placed here is next to a directive line.
+        if self.has_blank_before(node) and self.settings.directive_blank_lines != "remove":
             line = [HARDLINE, HARDLINE]
         return [line, TRIM_INDENT] if at_zero else line
 
@@ -222,6 +225,8 @@ class Declarations(Statements):
         return self.print_list(items, self.member_blank, aligned=aligned)
 
     def member_blank(self, previous: Node, item: Node) -> bool:
+        if self.tight_directive(previous, item):
+            return False
         if previous.type in DIRECTIVE_TYPES or item.type in DIRECTIVE_TYPES:
             return self.directive_blank(previous, item)
         if self.settings.max_blank_lines == 0:

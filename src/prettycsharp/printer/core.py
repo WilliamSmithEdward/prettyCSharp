@@ -72,6 +72,9 @@ _MERGING_PAIRS = {
 _URL = re.compile(r"\w+://")
 _LIST_ITEM = re.compile(r"^(?:[-*+]\s|\d+[.)]\s)")
 
+# Directives that open a conditional branch; as list items they end in #endif.
+_CONDITIONAL_TYPES = frozenset({"preproc_if", "preproc_elif", "preproc_else"})
+
 _INDENTING = frozenset(
     {"declaration_list", "block", "accessor_list", "enum_member_declaration_list"}
 )
@@ -343,6 +346,22 @@ class Core:
         if first.leading:
             return first.leading[0].newlines_before >= 2
         return first.newlines_before >= 2
+
+    def tight_directive(self, previous: Node, item: Node) -> bool:
+        """Whether ``directive_blank_lines`` removes the blank line between two items.
+
+        An #if item ends in #endif; a member can start with an #if around its
+        attributes. A comment above an #if keeps the blank line above it,
+        since that line is not next to the directive.
+        """
+        if self.settings.directive_blank_lines != "remove":
+            return False
+        if previous.type in _CONDITIONAL_TYPES:
+            return True
+        starts_with_if = item.type in _CONDITIONAL_TYPES or (
+            bool(item.children) and item.children[0].type == "preproc_if_in_attribute_list"
+        )
+        return starts_with_if and not self.has_comments_before(item)
 
     def has_comments_before(self, node: Node) -> bool:
         first = node.first_token()
