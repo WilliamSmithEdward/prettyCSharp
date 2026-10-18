@@ -7,6 +7,8 @@ Each release's section becomes the body of its GitHub release.
 - Nullable array types print tight, `object?[]?`, instead of
   `object? []?`, and spread elements are spaced, `[.. items]`, as Visual
   Studio formats them (IDE0055). Ranges such as `items[..2]` stay tight.
+- An empty collection `[]` is never split across lines. When it does not
+  fit, the line breaks after `=>` or `=` and `[]` goes to the next line.
 
 ## [1.1.4] - 2026-10-17
 

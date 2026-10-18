@@ -720,6 +720,22 @@ def test_nullable_array_types_stay_tight() -> None:
     assert fmt(source) == source
 
 
+def test_empty_collection_moves_to_the_next_line_whole() -> None:
+    check(
+        "class C { IEnumerable<Entry> Entries(string path, IMimeTypeProvider provider) => []; int[] xs = []; }\n",
+        """
+        class C
+        {
+            IEnumerable<Entry> Entries(string path, IMimeTypeProvider provider) =>
+                [];
+
+            int[] xs = [];
+        }
+        """,
+        max_line_length=74,
+    )
+
+
 def test_spread_elements_are_spaced_and_ranges_are_not() -> None:
     assert fmt("x = [..entries, 1, ..more];\n") == "x = [.. entries, 1, .. more];\n"
     assert fmt("var r = entries[1..] + entries[..2] + entries[..];\n") == (

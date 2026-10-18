@@ -277,10 +277,18 @@ class Expressions(Core):
         if value.verbatim:
             return False
         if value.type in _BLOCK_LIKE:
-            return True
+            # An empty `[]` is one word: it moves to the next line whole.
+            return not self._empty_collection(value)
         if value.type in _CREATION_TYPES:
             return value.child("initializer") is not None or value.first_of("initializer_expression") is not None
         return False
+
+    def _empty_collection(self, node: Node) -> bool:
+        """An empty collection expression with no comments inside: `[]`."""
+        if node.type != "collection_expression" or len(node.children) != 2:
+            return False
+        open_tok, close_tok = node.children
+        return not open_tok.trailing and not close_tok.leading
 
     # Member chains -------------------------------------------------------
 
@@ -655,6 +663,8 @@ class Expressions(Core):
         open_tok = node.children[0]
         close_tok = node.children[-1]
         items, commas = self.items_and_commas(node)
+        if self._empty_collection(node):
+            return [self.tok(open_tok), self.tok(close_tok)]
         if not items:
             return group([self.tok(open_tok), self.closing(close_tok, SOFTLINE)])
         docs = self._comma_docs(items, commas, may_add=True)
