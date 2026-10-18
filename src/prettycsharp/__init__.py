@@ -4,7 +4,7 @@ from prettycsharp.formatter import FormatResult, FormattingError, format_details
 from prettycsharp.parsing import CSharpSyntaxError
 from prettycsharp.settings import Settings, SettingsError
 
-__version__ = "1.1.3"
+__version__ = "1.1.4"
 
 __all__ = [
     "CSharpSyntaxError",
