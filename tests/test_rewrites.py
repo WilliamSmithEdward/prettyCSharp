@@ -262,7 +262,6 @@ def test_parentheses_remove_redundant_follows_precedence() -> None:
         var m = n - (o - p);
         """,
         parentheses="remove_redundant",
-        align_assignments=False,
     )
 
 

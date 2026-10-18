@@ -238,13 +238,15 @@ def test_initializer_break_threshold_zero_and_simple_lists() -> None:
     assert fmt("var a = new[] { 1, 2 };\n", simple_lists_inline=False) == "var a = new[]\n{\n    1,\n    2\n};\n"
 
 
-def test_alignment_off() -> None:
+def test_alignment_is_off_by_default_and_each_setting_turns_it_on() -> None:
     source = "var id = order.Id;\nvar customer = order.Customer;\n"
-    assert fmt(source, align_assignments=False) == source
-    assert fmt(
-        "var l = s switch { 1 => \"a\", 22 => \"b\" };\n", align_switch_arms=False
-    ) == 'var l = s switch\n{\n    1 => "a",\n    22 => "b"\n};\n'
-    assert fmt("enum E { A = 1, Bb = 2 }\n", align_enum_values=False) == "enum E\n{\n    A = 1,\n    Bb = 2\n}\n"
+    assert fmt(source) == source
+    assert fmt(source, align_assignments=True) == "var id       = order.Id;\nvar customer = order.Customer;\n"
+    switch = 'var l = s switch { 1 => "a", 22 => "b" };\n'
+    assert fmt(switch) == 'var l = s switch\n{\n    1 => "a",\n    22 => "b"\n};\n'
+    assert fmt(switch, align_switch_arms=True) == 'var l = s switch\n{\n    1  => "a",\n    22 => "b"\n};\n'
+    assert fmt("enum E { A = 1, Bb = 2 }\n") == "enum E\n{\n    A = 1,\n    Bb = 2\n}\n"
+    assert fmt("enum E { A = 1, Bb = 2 }\n", align_enum_values=True) == "enum E\n{\n    A  = 1,\n    Bb = 2\n}\n"
 
 
 def test_switch_case_indent_and_blank_lines_off() -> None:

@@ -12,7 +12,7 @@
 An opinionated formatter for C#, written in Python, in the spirit of Prettier.
 It parses each file with [tree-sitter](https://tree-sitter.github.io/) and
 reprints the whole file in one consistent layout: braces, indentation, line
-breaks, blank lines, alignment and a few safe rewrites such as file-scoped
+breaks, blank lines and a few safe rewrites such as file-scoped
 namespaces, sorted usings and expression-bodied members. It needs no .NET
 SDK.
 
@@ -140,7 +140,7 @@ Settings come from, highest precedence first:
 max_line_length = 100
 brace_style = "kr"
 continuation_keywords = "same_line"
-align_assignments = false
+align_assignments = true
 ```
 
 Every setting, its default, its alternatives and an example of each layout

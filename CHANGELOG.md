@@ -2,6 +2,14 @@
 
 Each release's section becomes the body of its GitHub release.
 
+## [Unreleased]
+
+- Nothing is padded into columns by default any more: `align_assignments`,
+  `align_enum_values` and `align_switch_arms` now default to `false`, so each
+  `=` and `=>` has one space before it. Padded columns shift whenever one
+  line changes, and the diff then touches every line of the run. Set any of
+  the three to `true` to align as before.
+
 ## [1.1.1] - 2026-10-17
 
 - `syntax_errors = "format_around"` now works inside each view of a file
