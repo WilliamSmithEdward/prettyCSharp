@@ -2,7 +2,7 @@
 
 Each release's section becomes the body of its GitHub release.
 
-## [Unreleased]
+## [1.1.3] - 2026-10-17
 
 - A property's accessor list or an enum that holds only a comment no longer
   gains a blank line each time the file is formatted. Found by fuzzing.
