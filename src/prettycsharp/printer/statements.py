@@ -227,18 +227,25 @@ class Statements(Expressions):
         close_tok = node.children[close_index]
         body = node.children[close_index + 1] if close_index + 1 < len(node.children) else None
         open_index = node.children.index(open_tok)
+        header_children = node.children[open_index + 1 : close_index]
+        empty = not any(child.named for child in header_children)
         inner: list[Doc] = []
         pending_space = False
-        for child in node.children[open_index + 1 : close_index]:
+        for child in header_children:
+            if pending_space:
+                inner.append(LINE)
             if child.text in (";", ",") and not child.named:
                 inner.append(self.tok(child))
                 pending_space = True
                 continue
-            if pending_space:
-                inner.append(LINE)
             pending_space = False
             inner.append(self.print(child))
-        header = group([self.tok(keyword), " ", self.tok(open_tok), indent([SOFTLINE, inner]), SOFTLINE, self.tok(close_tok)])
+        header = group(
+            [
+                self.tok(keyword), " ", self.tok(open_tok), indent([SOFTLINE, inner]),
+                LINE if empty else SOFTLINE, self.tok(close_tok),
+            ]
+        )
         if body is None:
             return header
         return [header, self.embedded(body, close_tok, node)]

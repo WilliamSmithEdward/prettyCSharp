@@ -161,6 +161,10 @@ public void Ship()
 
 ### Line breaking
 
+`for` headers keep a space after each semicolon even when the next clause
+is omitted: `for (var i = 0; ;)`. There is no space before the closing
+parenthesis unless all three clauses are empty: `for (; ; )`.
+
 | Setting | Default | Alternatives |
 | --- | --- | --- |
 | `argument_wrap` | `one_per_line`: each argument on its own line, `)` on its own line. Also applies to parameter lists. | `one_per_line_close_on_last`, `fill`, `align` |
