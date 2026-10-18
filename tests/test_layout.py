@@ -707,6 +707,26 @@ def test_obvious_parentheses_are_removed_and_clarifying_ones_kept() -> None:
     )
 
 
+def test_accessor_list_and_enum_holding_only_a_comment() -> None:
+    check(
+        "class C { int P {\n// c\n} }\nenum E {\n// c\n}\n",
+        """
+        class C
+        {
+            int P
+            {
+                // c
+            }
+        }
+
+        enum E
+        {
+            // c
+        }
+        """,
+    )
+
+
 def test_auto_properties_and_empty_bodies_stay_on_one_line() -> None:
     check(
         """
