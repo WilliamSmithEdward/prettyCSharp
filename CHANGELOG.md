@@ -2,6 +2,12 @@
 
 Each release's section becomes the body of its GitHub release.
 
+## [1.1.7] - 2026-10-18
+
+- Comments after the final `switch` section align with its statements
+  instead of its case label, avoiding Visual Studio's IDE0055 formatting
+  diagnostic. Switches containing only comments keep one indentation level.
+
 ## [1.1.6] - 2026-10-18
 
 - `for` headers keep a space between semicolons when the condition is

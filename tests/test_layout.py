@@ -561,6 +561,29 @@ def test_nothing_is_padded_into_columns() -> None:
     )
 
 
+@pytest.mark.parametrize("case_indent", [True, False])
+@pytest.mark.parametrize("comment", ["// Unknown settings are ignored.", "/* Unknown settings are ignored. */"])
+@pytest.mark.parametrize("blank", ["", "\n"])
+def test_trailing_switch_comment_aligns_with_statements(case_indent: bool, comment: str, blank: str) -> None:
+    label_indent = "    " if case_indent else ""
+    statement_indent = label_indent + "    "
+    check(
+        f"switch(x){{case 9:break;\n{blank}{comment}\n}}",
+        f"switch (x)\n{{\n{label_indent}case 9:\n{statement_indent}break;\n"
+        f"{blank}{statement_indent}{comment}\n}}\n",
+        switch_case_indent=case_indent,
+    )
+
+
+@pytest.mark.parametrize("case_indent", [True, False])
+def test_comment_only_switch_keeps_one_indent(case_indent: bool) -> None:
+    check(
+        "switch(x){\n// No cases yet.\n}",
+        "switch (x)\n{\n    // No cases yet.\n}\n",
+        switch_case_indent=case_indent,
+    )
+
+
 def test_switch_expression_arms_align_when_turned_on() -> None:
     check(
         """
