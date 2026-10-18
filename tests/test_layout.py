@@ -108,6 +108,32 @@ def test_four_space_indent() -> None:
     assert fmt("class A{void M(){Run();Stop();}}") == "class A\n{\n    void M()\n    {\n        Run();\n        Stop();\n    }\n}\n"
 
 
+def test_broken_property_pattern_in_catch_filter_uses_allman_brace() -> None:
+    check(
+        'try { Run(); } catch (Exception error) when (error is ObjectDisposedException or SocketException '
+        'or ArgumentException { ParamName: "socketAddress" }) { Stop(); }',
+        'try\n{\n    Run();\n}\n\n'
+        'catch (Exception error) when (error is ObjectDisposedException or SocketException or ArgumentException\n'
+        '{\n    ParamName: "socketAddress"\n})\n{\n    Stop();\n}\n',
+    )
+
+
+@pytest.mark.parametrize("style", ["allman", "kr", "mixed"])
+def test_broken_property_pattern_respects_brace_style(style: str) -> None:
+    separator = "\n" if style == "allman" else " "
+    check(
+        'var match = value is SomeType { VeryLongProperty: "a rather long value" };',
+        f'var match = value is SomeType{separator}'
+        '{\n    VeryLongProperty: "a rather long value"\n};\n',
+        max_line_length=45,
+        brace_style=style,
+    )
+
+
+def test_short_property_pattern_remains_inline() -> None:
+    check('var match=value is Type{Id:1};', 'var match = value is Type { Id: 1 };\n')
+
+
 def test_call_breaks_one_argument_per_line_with_paren_on_its_own_line() -> None:
     check(
         """

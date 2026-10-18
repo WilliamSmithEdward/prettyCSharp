@@ -897,16 +897,19 @@ class Expressions(Core):
 
     # Patterns ------------------------------------------------------------
 
-    def p_property_pattern_clause(self, node: Node) -> Doc:
+    def p_property_pattern_clause(self, node: Node, *, leading_space: bool = False) -> Doc:
         if len(node.children) < 2:
             return self.generic(node)
         open_tok = node.children[0]
         close_tok = node.children[-1]
         items, commas = self.items_and_commas(node)
+        before: Doc = ""
+        if leading_space:
+            before = LINE if self.settings.brace_style == "allman" else " "
         if not items:
-            return group([self.tok(open_tok), self.closing(close_tok, LINE)])
+            return group([before, self.tok(open_tok), self.closing(close_tok, LINE)])
         docs = self._comma_docs(items, commas)
-        return group([self.tok(open_tok), indent([LINE, join(LINE, docs)]), self.closing(close_tok, LINE)])
+        return group([before, self.tok(open_tok), indent([LINE, join(LINE, docs)]), self.closing(close_tok, LINE)])
 
     def p_positional_pattern_clause(self, node: Node) -> Doc:
         return self.arguments(node)
@@ -951,6 +954,10 @@ class Expressions(Core):
         parts: list[Doc] = []
         previous: Node | None = None
         for child in node.children:
+            if previous is not None and child.type == "property_pattern_clause" and not child.verbatim:
+                parts.append(self.p_property_pattern_clause(child, leading_space=True))
+                previous = child
+                continue
             if previous is not None and not (child.type == "positional_pattern_clause" and previous.named):
                 parts.append(" ")
             parts.append(self.print(child))

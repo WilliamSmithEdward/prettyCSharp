@@ -108,6 +108,9 @@ stops the search, and the file nearest the source wins.
 
 Short auto-property accessors always stay on one line: `public int Id { get; set; }`.
 
+Property patterns stay inline when they fit. When broken across lines,
+their opening brace follows `brace_style` for statements.
+
 ```csharp
 if (order.IsPaid)
 {

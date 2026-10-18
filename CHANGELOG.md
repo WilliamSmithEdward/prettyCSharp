@@ -4,6 +4,8 @@ Each release's section becomes the body of its GitHub release.
 
 ## [1.1.8] - 2026-10-18
 
+- A multiline property pattern moves its opening brace onto its own line
+  with Allman braces, including patterns in catch filters, avoiding IDE0055.
 - Assignments to a variable named `required`, including compound assignments,
   format without mistaking the identifier for a member modifier.
 - C# 14 null-conditional member and element assignments, such as
