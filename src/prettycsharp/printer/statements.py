@@ -76,6 +76,8 @@ class Statements(Expressions):
         return self.print_list(items, self.statement_blank, aligned=self.aligned_assignments(items))
 
     def statement_blank(self, previous: Node, item: Node) -> bool:
+        if self.tight_directive(previous, item):
+            return False
         if previous.type in DIRECTIVE_TYPES or item.type in DIRECTIVE_TYPES:
             return self.has_blank_before(item)
         if self.settings.blank_lines_around_blocks and (self.is_block_statement(previous) or self.is_block_statement(item)):
@@ -321,6 +323,8 @@ class Statements(Expressions):
         return [self.tok(open_tok), body, self.close_comments(close_tok), HARDLINE, self.tok(close_tok, leading=False)]
 
     def section_blank(self, previous: Node, item: Node) -> bool:
+        if self.tight_directive(previous, item):
+            return False
         if previous.type in DIRECTIVE_TYPES or item.type in DIRECTIVE_TYPES:
             return self.has_blank_before(item)
         if not self.settings.switch_case_blank_lines or self.settings.max_blank_lines == 0:

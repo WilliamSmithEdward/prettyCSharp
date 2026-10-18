@@ -134,6 +134,7 @@ while (item != null);
 | `member_blank_lines` | `group_fields`: consecutive fields and auto-properties stay tight, one blank line around methods, constructors, and other members with bodies | `all`, `preserve` |
 | `blank_lines_around_blocks` | `true`: a block statement gets a blank line before and after it, except right after `{` or right before `}` | `false` |
 | `max_blank_lines` | `1`: author's blank lines between plain statements are kept, runs collapse to one | any integer, `0` |
+| `directive_blank_lines` | `remove`: no blank line directly above or below `#if`, `#elif`, `#else` and `#endif` | `preserve` |
 
 No blank line ever follows `{` or precedes `}`. A comment directly above a block moves with
 it, so the blank line goes above the comment.

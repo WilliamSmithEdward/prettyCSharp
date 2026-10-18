@@ -58,6 +58,7 @@ class Settings:
     member_blank_lines: str = "group_fields"
     blank_lines_around_blocks: bool = True
     max_blank_lines: int = 1
+    directive_blank_lines: str = "remove"
 
     argument_wrap: str = "one_per_line"
     chain_break_threshold: int = 2
@@ -128,6 +129,7 @@ _CHOICES: dict[str, tuple[str, ...]] = {
     "braces": ("preserve", "always", "single_line_only"),
     "empty_bodies": ("inline", "allman"),
     "member_blank_lines": ("group_fields", "all", "preserve"),
+    "directive_blank_lines": ("remove", "preserve"),
     "argument_wrap": ("one_per_line", "one_per_line_close_on_last", "fill", "align"),
     "expression_body_chain": ("own_line", "hang"),
     "binary_wrap": ("before_operator_paren_own_line", "before_operator", "after_operator"),

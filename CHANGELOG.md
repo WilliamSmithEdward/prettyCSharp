@@ -9,6 +9,10 @@ Each release's section becomes the body of its GitHub release.
   Studio formats them (IDE0055). Ranges such as `items[..2]` stay tight.
 - An empty collection `[]` is never split across lines. When it does not
   fit, the line breaks after `=>` or `=` and `[]` goes to the next line.
+- No blank line is left directly above or below `#if`, `#elif`, `#else`
+  and `#endif`. A comment above an `#if` keeps the blank line above the
+  comment. The new setting `directive_blank_lines = "preserve"` keeps the
+  blank lines as written.
 
 ## [1.1.4] - 2026-10-17
 

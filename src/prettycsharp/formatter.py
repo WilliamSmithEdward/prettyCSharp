@@ -92,6 +92,7 @@ def _format(source: str, settings: Settings, lang_version: float) -> FormatResul
                 functools.partial(_format_view, settings=hiding, lang_version=lang_version, around=around, kept=kept),
                 functools.partial(_same_view, around=around),
                 _usable_around if around else conditional.parses,
+                tight=settings.directive_blank_lines == "remove",
             )
         except conditional.BranchChanged as error:
             raise FormattingError(str(error)) from None
