@@ -2,7 +2,7 @@
 
 Each release's section becomes the body of its GitHub release.
 
-## [Unreleased]
+## [1.1.1] - 2026-10-17
 
 - `syntax_errors = "format_around"` now works inside each view of a file
   split by `#if`: a view that does not parse is formatted around its own
