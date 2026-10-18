@@ -27,7 +27,9 @@ from prettycsharp.syntax import Node
 _PRECEDENCE = {
     "??": 1,
     "||": 2,
+    "or": 2,
     "&&": 3,
+    "and": 3,
     "|": 4,
     "^": 5,
     "&": 6,
@@ -158,7 +160,7 @@ class Expressions(Core):
         stack: list[Node] = [node]
         while stack:
             current = stack.pop()
-            current_op = current.child("operator") if current.type == "binary_expression" else None
+            current_op = current.child("operator") if current.type == node.type else None
             if (
                 current_op is not None
                 and _PRECEDENCE.get(current_op.text or "", -1) == level
@@ -939,10 +941,10 @@ class Expressions(Core):
         return self.spaced(node.children)
 
     def p_and_pattern(self, node: Node) -> Doc:
-        return self.spaced(node.children)
+        return self.binary(node, in_condition=False)
 
     def p_or_pattern(self, node: Node) -> Doc:
-        return self.spaced(node.children)
+        return self.binary(node, in_condition=False)
 
     def p_negated_pattern(self, node: Node) -> Doc:
         return self.spaced(node.children)

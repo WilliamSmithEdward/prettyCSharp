@@ -108,13 +108,13 @@ def test_four_space_indent() -> None:
     assert fmt("class A{void M(){Run();Stop();}}") == "class A\n{\n    void M()\n    {\n        Run();\n        Stop();\n    }\n}\n"
 
 
-def test_broken_property_pattern_in_catch_filter_uses_allman_brace() -> None:
+def test_catch_filter_wraps_logical_pattern_before_expanding_property_pattern() -> None:
     check(
         'try { Run(); } catch (Exception error) when (error is ObjectDisposedException or SocketException '
         'or ArgumentException { ParamName: "socketAddress" }) { Stop(); }',
         'try\n{\n    Run();\n}\n\n'
-        'catch (Exception error) when (error is ObjectDisposedException or SocketException or ArgumentException\n'
-        '{\n    ParamName: "socketAddress"\n})\n{\n    Stop();\n}\n',
+        'catch (Exception error) when (error is ObjectDisposedException\n'
+        '    or SocketException\n    or ArgumentException { ParamName: "socketAddress" })\n{\n    Stop();\n}\n',
     )
 
 
@@ -132,6 +132,26 @@ def test_broken_property_pattern_respects_brace_style(style: str) -> None:
 
 def test_short_property_pattern_remains_inline() -> None:
     check('var match=value is Type{Id:1};', 'var match = value is Type { Id: 1 };\n')
+
+
+@pytest.mark.parametrize("operator", ["or", "and"])
+@pytest.mark.parametrize("wrap", ["before_operator_paren_own_line", "before_operator", "after_operator"])
+def test_long_logical_patterns_wrap(operator: str, wrap: str) -> None:
+    if wrap == "after_operator":
+        expected = f"var ok = value is LongPatternOne {operator}\n    LongPatternTwo {operator}\n    LongPatternThree;\n"
+    else:
+        expected = f"var ok = value is LongPatternOne\n    {operator} LongPatternTwo\n    {operator} LongPatternThree;\n"
+    check(
+        f"var ok = value is LongPatternOne {operator} LongPatternTwo {operator} LongPatternThree;",
+        expected,
+        max_line_length=50,
+        binary_wrap=wrap,
+    )
+
+
+@pytest.mark.parametrize("pattern", ["A or B", "A and B", "A or B and C", "(A or B) and C"])
+def test_short_logical_patterns_keep_grouping_and_stay_inline(pattern: str) -> None:
+    check(f"var ok=value is {pattern};", f"var ok = value is {pattern};\n")
 
 
 def test_call_breaks_one_argument_per_line_with_paren_on_its_own_line() -> None:

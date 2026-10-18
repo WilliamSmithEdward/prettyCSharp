@@ -4,6 +4,8 @@ Each release's section becomes the body of its GitHub release.
 
 ## [1.1.8] - 2026-10-18
 
+- Long `or` and `and` patterns wrap at the configured line width using
+  `binary_wrap`, while short patterns stay inline.
 - A multiline property pattern moves its opening brace onto its own line
   with Allman braces, including patterns in catch filters, avoiding IDE0055.
 - Assignments to a variable named `required`, including compound assignments,

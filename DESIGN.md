@@ -177,6 +177,8 @@ parenthesis unless all three clauses are empty: `for (; ; )`.
 | `ternary_wrap` | `before`: break before `?` and `:` when too long | `after`, `always` |
 | `lambda_body` | `hug`: the last argument hangs off the call line when it is a lambda with a block body or a broken member chain, or a creation with a broken initializer | `argument` |
 
+`binary_wrap` also controls line breaks in `or` and `and` patterns.
+
 ```csharp
 var invoice = invoiceService.CreateInvoice(
     customer.Id,
