@@ -2,7 +2,7 @@
 
 Each release's section becomes the body of its GitHub release.
 
-## [Unreleased]
+## [1.1.2] - 2026-10-17
 
 - Nothing is padded into columns by default any more: `align_assignments`,
   `align_enum_values` and `align_switch_arms` now default to `false`, so each
