@@ -39,10 +39,13 @@ _EMBEDDED_PARENTS = frozenset(
 class Statements(Expressions):
     # Blocks ---------------------------------------------------------------
 
-    def block(self, block: Node, context: str) -> Doc:
-        """A block after a header: the brace's line break or space, then the braces."""
+    def block(self, block: Node, context: str, head_id: object | None = None) -> Doc:
+        """A block after a header: the brace's line break or space, then the braces.
+
+        ``head_id`` names the header's group, for headers whose empty body
+        moves to its own line when the header spans lines."""
         if self.is_empty_block(block) and self.settings.empty_bodies == "inline":
-            return [" ", self.block_braces(block)]
+            return [self.after_header(head_id), self.block_braces(block)]
         return [self.open_brace(context), self.block_braces(block)]
 
     def is_empty_block(self, block: Node) -> bool:
@@ -365,7 +368,9 @@ class Statements(Expressions):
         block = node.children[-1] if node.children else None
         if block is None or block.type != "block":
             return self.generic(node)
-        return [self.spaced(node.children[:-1]), self.block(block, "statement")]
+        comments = self.hoist_leading(node.children[0])
+        head_id = object()
+        return [comments, group(self.spaced(node.children[:-1]), id=head_id), self.block(block, "statement", head_id)]
 
     def p_finally_clause(self, node: Node) -> Doc:
         return self.p_catch_clause(node)

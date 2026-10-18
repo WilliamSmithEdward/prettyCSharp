@@ -707,6 +707,90 @@ def test_obvious_parentheses_are_removed_and_clarifying_ones_kept() -> None:
     )
 
 
+def test_empty_body_after_a_header_that_spans_lines_gets_its_own_line() -> None:
+    # Visual Studio (IDE0055) keeps `{ }` on the header's line only when the
+    # header is one line.
+    check(
+        """
+        // Redirects.
+        class RedirectModule : ModuleBase
+        {
+            public RedirectModule(string baseRoute, Uri redirectUrl, Func<IHttpContext, bool>? shouldRedirect, HttpStatusCode statusCode) { }
+            public RedirectModule(long alphabetical, long betamaxfactor, long gammaradiation, long deltaforce) : base(alphabetical) { }
+            public void Generic<TFirstTypeParameter, TSecondTypeParameter>(TFirstTypeParameter first, TSecondTypeParameter s) where TFirstTypeParameter : class { }
+            public RedirectModule(int a) : base() { }
+            // Short.
+            public void G<T>() where T : class { }
+        }
+        public abstract class EmptyAbstractWithAVeryLongNameIndeed<TFirstTypeParameter, TSecondTypeParameter> : Base where TFirstTypeParameter : class { }
+        """,
+        """
+        // Redirects.
+        class RedirectModule : ModuleBase
+        {
+            public RedirectModule(
+                string baseRoute,
+                Uri redirectUrl,
+                Func<IHttpContext, bool>? shouldRedirect,
+                HttpStatusCode statusCode
+            )
+            { }
+
+            public RedirectModule(long alphabetical, long betamaxfactor, long gammaradiation, long deltaforce)
+                : base(alphabetical)
+            { }
+
+            public void Generic<TFirstTypeParameter, TSecondTypeParameter>(TFirstTypeParameter first, TSecondTypeParameter s)
+                where TFirstTypeParameter : class
+            { }
+
+            public RedirectModule(int a) : base() { }
+
+            // Short.
+            public void G<T>() where T : class { }
+        }
+
+        public abstract class EmptyAbstractWithAVeryLongNameIndeed<TFirstTypeParameter, TSecondTypeParameter> : Base
+            where TFirstTypeParameter : class
+        { }
+        """,
+    )
+
+
+def test_empty_catch_and_lambda_bodies_after_a_header_that_spans_lines() -> None:
+    check(
+        """
+        void M()
+        {
+            try { }
+            // Ignored.
+            catch (Exception error) when (IsRecoverable(error)) { }
+            Run((first, second, third) => { });
+        }
+        """,
+        """
+        void M()
+        {
+            try { }
+
+            // Ignored.
+            catch (Exception error) when (IsRecoverable(
+                error
+            ))
+            { }
+
+            Run((
+                first,
+                second,
+                third
+            ) =>
+            { });
+        }
+        """,
+        max_line_length=30,
+    )
+
+
 def test_accessor_list_and_enum_holding_only_a_comment() -> None:
     check(
         "class C { int P {\n// c\n} }\nenum E {\n// c\n}\n",

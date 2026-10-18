@@ -2,6 +2,14 @@
 
 Each release's section becomes the body of its GitHub release.
 
+## [Unreleased]
+
+- An empty body `{ }` after a header that spans lines goes on its own line,
+  as Visual Studio formats it. Before, `) { }` after a broken parameter
+  list, constructor initializer, `where` clause, base list, catch filter or
+  lambda parameter list was flagged by IDE0055. A header on one line keeps
+  `{ }` beside it.
+
 ## [1.1.3] - 2026-10-17
 
 - A property's accessor list or an enum that holds only a comment no longer

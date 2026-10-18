@@ -104,7 +104,7 @@ stops the search, and the file nearest the source wins.
 | `brace_style` | `allman` | `kr`, `mixed` (Allman for types and members, K&R in method bodies) |
 | `continuation_keywords` | `blank_line`: `else`, `else if`, `catch`, `finally`, and a `do` loop's `while` go on their own line after a blank line | `new_line`, `same_line` |
 | `braces` | `preserve` | `always`, `single_line_only` |
-| `empty_bodies` | `inline`: `{ }` on the declaration line | `allman` |
+| `empty_bodies` | `inline`: `{ }` on the declaration line, or on its own line when the header spans lines | `allman` |
 
 Short auto-property accessors always stay on one line: `public int Id { get; set; }`.
 
