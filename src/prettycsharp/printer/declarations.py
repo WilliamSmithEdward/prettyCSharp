@@ -193,7 +193,7 @@ class Declarations(Statements):
     def p_file_scoped_namespace_declaration(self, node: Node) -> Doc:
         return self.words(node.children)
 
-    def declaration_body(self, body: Node, context: str) -> Doc:
+    def declaration_body(self, body: Node, context: str, head_id: object | None = None) -> Doc:
         if len(body.children) < 2 or body.verbatim:
             return [" ", self.print(body)]
         open_tok = body.children[0]
@@ -201,7 +201,7 @@ class Declarations(Statements):
         items = body.children[1:-1]
         if not items and not close_tok.leading and not open_tok.trailing:
             if self.settings.empty_bodies == "inline":
-                return [" ", self.tok(open_tok), " ", self.tok(close_tok)]
+                return [self.after_header(head_id), self.tok(open_tok), " ", self.tok(close_tok)]
             return [self.open_brace(context), self.tok(open_tok), HARDLINE, self.tok(close_tok)]
         inner: Doc = ""
         if items:
@@ -261,14 +261,17 @@ class Declarations(Statements):
         if body is None:
             body = node.first_of("declaration_list", "enum_member_declaration_list")
         attributes, header, constraints, tail = self.split_declaration(node, body)
-        parts: list[Doc] = [self.attribute_lines(attributes), self.header(header)]
+        comments = self.hoist_leading(header[0] if header else None)
+        head: list[Doc] = [self.header(header)]
         if constraints:
-            parts.append(self.constraints(constraints))
+            head.append(self.constraints(constraints))
+        head_id = object()
+        parts: list[Doc] = [self.attribute_lines(attributes), comments, group(head, id=head_id)]
         if body is not None:
             if body.type == "enum_member_declaration_list":
-                parts.append(self.enum_body(body))
+                parts.append(self.enum_body(body, head_id))
             else:
-                parts.append(self.declaration_body(body, "type"))
+                parts.append(self.declaration_body(body, "type", head_id))
         parts.append(self.words(tail) if tail else "")
         return parts
 
@@ -363,7 +366,7 @@ class Declarations(Statements):
 
     # Enums ----------------------------------------------------------------
 
-    def enum_body(self, body: Node) -> Doc:
+    def enum_body(self, body: Node, head_id: object | None = None) -> Doc:
         if len(body.children) < 2 or any(c.type in DIRECTIVE_TYPES for c in body.children):
             return [" ", self.verbatim(body)]
         open_tok = body.children[0]
@@ -371,7 +374,7 @@ class Declarations(Statements):
         items, commas = self.items_and_commas(body)
         if not items and not close_tok.leading:
             if self.settings.empty_bodies == "inline":
-                return [" ", self.tok(open_tok), " ", self.tok(close_tok)]
+                return [self.after_header(head_id), self.tok(open_tok), " ", self.tok(close_tok)]
             return [self.open_brace("type"), self.tok(open_tok), HARDLINE, self.tok(close_tok)]
         members = [item[0] for item in items if len(item) == 1]
         if len(members) != len(items):
@@ -452,17 +455,20 @@ class Declarations(Statements):
                 break
             else:
                 header.append(child)
-        parts: list[Doc] = [self.attribute_lines(attributes), self.header(header)]
+        comments = self.hoist_leading(header[0] if header else None)
+        head: list[Doc] = [self.header(header)]
         if ctor_init is not None:
-            parts.append(group(indent([LINE, self.print(ctor_init)])))
+            head.append(group(indent([LINE, self.print(ctor_init)])))
         if constraints:
-            parts.append(self.constraints(constraints))
+            head.append(self.constraints(constraints))
+        head_id = object()
+        parts: list[Doc] = [self.attribute_lines(attributes), comments, group(head, id=head_id)]
         rest = node.children[tail_start:]
         i = 0
         while i < len(rest):
             child = rest[i]
             if child is body and child.type == "block":
-                parts.append(self.block(child, "member"))
+                parts.append(self.block(child, "member", head_id))
             elif child.type == "arrow_expression_clause":
                 parts.append(self.expression_body(child))
             elif child is accessors:

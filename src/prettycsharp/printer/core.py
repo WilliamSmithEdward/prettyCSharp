@@ -22,6 +22,7 @@ from prettycsharp.doc import (
     TRIM_INDENT,
     Doc,
     Group,
+    IfBreak,
     LineSuffix,
     Wrapped,
     group,
@@ -90,6 +91,8 @@ class Core:
         self.file = file
         self.lang = lang_version
         self._blank_stack: list[Callable[[Node, Node], bool]] = []
+        # Tokens whose leading comments were printed ahead of them.
+        self._hoisted: set[int] = set()
         self._handlers: dict[str, Handler] = {}
         for name in dir(self):
             if name.startswith("p_"):
@@ -115,7 +118,7 @@ class Core:
         if t.text is None:
             return self.print(t)
         parts: list[Doc] = []
-        if leading and t.leading:
+        if leading and t.leading and id(t) not in self._hoisted:
             parts.append(self.leading_comments(t))
         parts.append(self.token_text(t))
         if trailing and t.trailing:
@@ -132,6 +135,16 @@ class Core:
         # A multi-line string token is content: printed exactly, its line
         # breaks kept as written, its continuation lines not reindented.
         return [text, BREAK_PARENT]
+
+    def hoist_leading(self, node: Node | None) -> Doc:
+        """The comments before ``node``'s first token, printed now instead of with it."""
+        if node is None or node.verbatim:
+            return ""
+        first = next(node.tokens(), None)
+        if first is None or not first.leading or first.verbatim:
+            return ""
+        self._hoisted.add(id(first))
+        return self.leading_comments(first)
 
     def leading_comments(self, t: Node, *, first_blank_allowed: bool = False) -> Doc:
         """The comments before a token, each on its own line, then the token's line."""
@@ -485,6 +498,13 @@ class Core:
         if close.leading[0].newlines_before >= 2 and self.settings.max_blank_lines > 0:
             before.append(HARDLINE)
         return indent([*before, parts])
+
+    def after_header(self, head_id: object | None) -> Doc:
+        """What goes before an empty inline body: a space, or a line break when
+        the header group ``head_id`` spans lines, as Visual Studio formats it."""
+        if head_id is None:
+            return " "
+        return IfBreak(HARDLINE, " ", group_id=head_id)
 
     def open_brace(self, context: str) -> Doc:
         """What goes before an opening brace: a line break or a space."""

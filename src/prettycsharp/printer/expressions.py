@@ -128,7 +128,7 @@ class _Link:
 
 
 class Expressions(Core):
-    def block(self, block: Node, context: str) -> Doc:  # pragma: no cover - Statements defines it
+    def block(self, block: Node, context: str, head_id: object | None = None) -> Doc:  # pragma: no cover - Statements defines it
         raise NotImplementedError
 
     # Binary operators ---------------------------------------------------
@@ -724,6 +724,7 @@ class Expressions(Core):
         body = node.child("body")
         if arrow is None or body is None:
             return self.generic(node)
+        comments = self.hoist_leading(node.children[0]) if body.type == "block" else ""
         head: list[Doc] = []
         previous: Node | None = None
         for child in node.children:
@@ -734,7 +735,8 @@ class Expressions(Core):
             head.append(self.print(child))
             previous = child
         if body.type == "block":
-            return [head, " ", self.tok(arrow), self.block(body, "lambda")]
+            head_id = object()
+            return [comments, group([head, " ", self.tok(arrow)], id=head_id), self.block(body, "lambda", head_id)]
         body_doc = self.print(body)
         if self.self_breaking(body) or self.block_like(body):
             return [head, " ", self.tok(arrow), " ", body_doc]
