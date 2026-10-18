@@ -1005,7 +1005,8 @@ class Expressions(Core):
         return self.join_tokens([(c, self.print(c)) for c in node.children])
 
     def p_array_type(self, node: Node) -> Doc:
-        return self.join_tokens([(c, self.print(c)) for c in node.children])
+        # A rank follows its element type tight, nullable or not: `object?[]`.
+        return [self.print(c) for c in node.children]
 
     def p_array_rank_specifier(self, node: Node) -> Doc:
         parts: list[Doc] = []
@@ -1040,7 +1041,8 @@ class Expressions(Core):
         return self.generic(node)
 
     def p_spread_element(self, node: Node) -> Doc:
-        return self.join_tokens([(c, self.print(c)) for c in node.children])
+        # Visual Studio spaces a spread, `[.. items]`, unlike a range, `items[..2]`.
+        return self.spaced(node.children)
 
 
 class _OperatorMarker(Node):
