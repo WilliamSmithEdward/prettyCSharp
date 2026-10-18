@@ -31,7 +31,82 @@ def parse_tree(source: str) -> Tree:
         # The grammar wants a line break after a directive, even at the end
         # of the file. The extra byte comes after every node's text.
         data += b"\n"
-    return Parser(_LANGUAGE).parse(data)
+    parser = Parser(_LANGUAGE)
+    tree = parser.parse(data)
+    if not tree.root_node.has_error:
+        return tree
+    return _compatibility_tree(parser, data, tree)
+
+
+def _compatibility_tree(parser: Parser, data: bytes, original: Tree) -> Tree:
+    """Resolve two grammar gaps without discarding tokens or accepting errors.
+
+    Stand-ins have identical byte lengths. The syntax model reads token text
+    from the original source and restores conditional-access node shapes.
+    Only actual lexer tokens are considered, never text in comments/strings.
+    """
+    leaves: list[Node] = []
+    stack = [original.root_node]
+    while stack:
+        node = stack.pop()
+        if node.children:
+            stack.extend(reversed(node.children))
+        elif not node.is_missing and node.type != "comment":
+            leaves.append(node)
+    modified = bytearray(data)
+    questions: set[int] = set()
+    assignment_starts = {
+        "=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>=", ">>>=", "??=",
+        ".", "[", "(", "++", "--", "?",
+        "+", "-", "*", "/", "%", "&", "|", "^", "<", ">",
+    }
+    for node, following in zip(leaves, leaves[1:], strict=False):
+        if node.type == "required" and following.type in assignment_starts:
+            modified[node.start_byte:node.end_byte] = b"req_ired"
+        elif (
+            node.type == "?"
+            and following.type in (".", "[")
+            and node.parent is not None
+            and node.parent.type not in ("nullable_type", "conditional_expression")
+        ):
+            modified[node.start_byte] = ord("!")
+            questions.add(node.start_byte)
+    if modified == data:
+        return original
+    candidate = parser.parse(bytes(modified))
+    if candidate.root_node.has_error:
+        return original
+    # Only repair null-conditional access along an assignment's receiver
+    # chain. In particular, do not turn conditional ++/-- into valid input.
+    allowed: set[int] = set()
+    stack = [candidate.root_node]
+    while stack:
+        node = stack.pop()
+        if node.type == "!" and node.start_byte in questions and _assignment_receiver(node):
+            allowed.add(node.start_byte)
+        stack.extend(node.children)
+    for position in questions - allowed:
+        modified[position] = ord("?")
+    if questions - allowed:
+        candidate = parser.parse(bytes(modified))
+    return original if candidate.root_node.has_error else candidate
+
+
+def _assignment_receiver(operator: Node) -> bool:
+    receiver = operator.parent
+    if receiver is None or receiver.type != "postfix_unary_expression":
+        return False
+    while receiver.parent is not None:
+        parent = receiver.parent
+        if parent.type == "assignment_expression":
+            return parent.child_by_field_name("left") == receiver
+        field = "function" if parent.type == "invocation_expression" else "expression"
+        if parent.type not in ("member_access_expression", "element_access_expression", "invocation_expression"):
+            return False
+        if parent.child_by_field_name(field) != receiver:
+            return False
+        receiver = parent
+    return False
 
 
 def parse(source: str) -> Tree:

@@ -190,9 +190,10 @@ where any branch would change in meaning is left untouched.
 
 ## Code the parser cannot read
 
-prettycsharp reads C# through tree-sitter's C# grammar, and syntax newer
-than the grammar, such as C# 14's null-conditional assignment, does not
-parse. By default such a file is reported with its line and column and left
+prettycsharp reads C# through tree-sitter's C# grammar, with compatibility
+support for assignments to `required` and C# 14 null-conditional assignments.
+Other unsupported syntax, such as the `#:` directives of file-based apps,
+does not parse. By default such a file is reported with its line and column and left
 untouched. With `syntax_errors = "format_around"`, the formatter finds the
 fewest lines it cannot read, leaves just those as written, formats the rest,
 and names the lines it kept:

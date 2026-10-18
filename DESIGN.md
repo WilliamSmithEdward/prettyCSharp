@@ -369,8 +369,15 @@ lines, found by their text, in the view of the source and of the result.
 | --- | --- | --- |
 | `syntax_errors` | `skip_file`: a file that does not parse is reported and left untouched | `format_around` |
 
-Syntax newer than the grammar, such as C# 14's null-conditional assignment
-or the `#:` directives of file-based apps, does not parse. With
+The parser supports assignments to the contextual identifier `required`
+and C# 14 null-conditional member and element assignments. For these two
+grammar gaps, a compatibility pass uses same-width lexical stand-ins,
+requires a complete error-free parse, and restores the original tokens and
+conditional-access syntax before printing and verification. Invalid input
+is still refused; the canonical verifier is unchanged.
+
+Other syntax newer than the grammar, such as the `#:` directives of
+file-based apps, does not parse. With
 `format_around`, the formatter looks for the fewest whole lines whose removal
 lets the file parse (`isolate.py`), trying the lines around each error in
 turn. Those lines are hidden behind placeholder comments, the rest is

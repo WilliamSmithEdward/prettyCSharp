@@ -226,9 +226,53 @@ def _copy(tree: Tree, data: bytes) -> tuple[Node, list[Node], list[Comment]]:
             node.children.append(child)
             pending.append((ts_child, child))
         stack.extend(reversed(pending))
+    _restore_conditional_assignments(root)
     tokens.extend(root.tokens())
     comments.sort(key=lambda c: c.start)
     return root, tokens, comments
+
+
+def _restore_conditional_assignments(root: Node) -> None:
+    """Restore conditional accesses parsed with same-width ``!`` stand-ins."""
+    nodes: list[Node] = []
+    stack = [root]
+    while stack:
+        node = stack.pop()
+        nodes.append(node)
+        stack.extend(node.children)
+    for node in reversed(nodes):
+        if node.type not in ("member_access_expression", "element_access_expression") or not node.children:
+            continue
+        receiver = node.children[0]
+        if receiver.type != "postfix_unary_expression" or len(receiver.children) != 2:
+            continue
+        condition, question = receiver.children
+        if question.type != "!" or question.text != "?":
+            continue
+        children = node.children[1:]
+        if node.type == "element_access_expression":
+            if len(children) != 1 or children[0].type != "bracketed_argument_list":
+                continue
+            children = children[0].children
+        binding = Node(
+            type="member_binding_expression" if node.type == "member_access_expression" else "element_binding_expression",
+            named=True,
+            start=children[0].start,
+            end=node.end,
+            line=children[0].line,
+            column=children[0].column,
+            end_line=node.end_line,
+            children=children,
+            parent=node,
+        )
+        for child in children:
+            child.parent = binding
+        condition.field = "condition"
+        condition.parent = node
+        question.type = "?"
+        question.parent = node
+        node.type = "conditional_access_expression"
+        node.children = [condition, question, binding]
 
 
 def _new_node(ts_node: TSNode, field_name: str | None, data: bytes) -> Node:

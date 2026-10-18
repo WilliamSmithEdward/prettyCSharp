@@ -2,6 +2,15 @@
 
 Each release's section becomes the body of its GitHub release.
 
+## [1.1.8] - 2026-10-18
+
+- Assignments to a variable named `required`, including compound assignments,
+  format without mistaking the identifier for a member modifier.
+- C# 14 null-conditional member and element assignments, such as
+  `telemetry?.Route = value` and `items?[index] += value`, format instead of
+  being refused. Original tokens, comments, and conditional-access semantics
+  are preserved, and malformed input is still refused.
+
 ## [1.1.7] - 2026-10-18
 
 - Comments after the final `switch` section align with its statements
