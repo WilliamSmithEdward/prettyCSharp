@@ -327,7 +327,11 @@ class Statements(Expressions):
             lines = [HARDLINE, self.print_list(sections, self.section_blank)]
             # Case labels sit one level in, or flush with switch.
             body = indent(lines) if self.settings.switch_case_indent else lines
-        return [self.tok(open_tok), body, self.close_comments(close_tok), HARDLINE, self.tok(close_tok, leading=False)]
+        comments = self.close_comments(close_tok)
+        # Trailing comments belong at the final section's statement level.
+        if self.settings.switch_case_indent and any(section.type == "switch_section" for section in sections):
+            comments = indent(comments)
+        return [self.tok(open_tok), body, comments, HARDLINE, self.tok(close_tok, leading=False)]
 
     def section_blank(self, previous: Node, item: Node) -> bool:
         if self.tight_directive(previous, item):

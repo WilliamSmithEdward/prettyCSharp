@@ -273,6 +273,9 @@ public enum Status
 | `switch_case_indent` | `true` | `false` |
 | `switch_case_blank_lines` | `true`: blank line between case sections; stacked fall-through labels stay together | `false` |
 
+Comments after the final switch section align with its statements. A switch
+containing only comments indents them one level inside its braces.
+
 ### Syntax rewrites
 
 These change tokens, not only whitespace. Verification accounts for each one.
