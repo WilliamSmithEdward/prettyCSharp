@@ -108,6 +108,9 @@ stops the search, and the file nearest the source wins.
 
 Short auto-property accessors always stay on one line: `public int Id { get; set; }`.
 
+Property patterns stay inline when they fit. When broken across lines,
+their opening brace follows `brace_style` for statements.
+
 ```csharp
 if (order.IsPaid)
 {
@@ -173,6 +176,8 @@ parenthesis unless all three clauses are empty: `for (; ; )`.
 | `binary_wrap` | `before_operator_paren_own_line` | `before_operator`, `after_operator` |
 | `ternary_wrap` | `before`: break before `?` and `:` when too long | `after`, `always` |
 | `lambda_body` | `hug`: the last argument hangs off the call line when it is a lambda with a block body or a broken member chain, or a creation with a broken initializer | `argument` |
+
+`binary_wrap` also controls line breaks in `or` and `and` patterns.
 
 ```csharp
 var invoice = invoiceService.CreateInvoice(
