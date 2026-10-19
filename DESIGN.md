@@ -178,6 +178,10 @@ parenthesis unless all three clauses are empty: `for (; ; )`.
 | `lambda_body` | `hug`: the last argument hangs off the call line when it is a lambda with a block body or a broken member chain, or a creation with a broken initializer | `argument` |
 
 `binary_wrap` also controls line breaks in `or` and `and` patterns.
+With `before_operator_paren_own_line`, broken conditions in catch
+filters, `if`, `while`, and `do` loops put the expression below `(` and `)`
+on its own line, including predicate calls and mixed Boolean/pattern
+conditions. Pattern operators take one further continuation indent.
 Negated pattern chains and trailing Boolean operators share one continuation
 indent, including `value is not A and not B && condition`.
 

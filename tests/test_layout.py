@@ -113,8 +113,67 @@ def test_catch_filter_wraps_logical_pattern_before_expanding_property_pattern() 
         'try { Run(); } catch (Exception error) when (error is ObjectDisposedException or SocketException '
         'or ArgumentException { ParamName: "socketAddress" }) { Stop(); }',
         'try\n{\n    Run();\n}\n\n'
-        'catch (Exception error) when (error is ObjectDisposedException\n'
-        '    or SocketException\n    or ArgumentException { ParamName: "socketAddress" })\n{\n    Stop();\n}\n',
+        'catch (Exception error) when (\n    error is ObjectDisposedException\n'
+        '        or SocketException\n        or ArgumentException { ParamName: "socketAddress" }\n)\n{\n    Stop();\n}\n',
+    )
+
+
+def test_broken_pattern_catch_filter_puts_parentheses_on_own_lines() -> None:
+    check(
+        'try { Run(); } catch (Exception error) when '
+        '(error is SocketException or ObjectDisposedException or OperationCanceledException) { }',
+        'try\n{\n    Run();\n}\n\ncatch (Exception error) when (\n'
+        '    error is SocketException\n        or ObjectDisposedException\n'
+        '        or OperationCanceledException\n)\n{ }\n',
+        max_line_length=90,
+    )
+
+
+@pytest.mark.parametrize("keyword", ["if", "while"])
+def test_broken_pattern_conditions_share_catch_filter_layout(keyword: str) -> None:
+    check(
+        f'{keyword} (error is SocketException or ObjectDisposedException or OperationCanceledException) {{ Stop(); }}',
+        f'{keyword} (\n    error is SocketException\n        or ObjectDisposedException\n'
+        '        or OperationCanceledException\n)\n{\n    Stop();\n}\n',
+        max_line_length=65,
+    )
+
+
+def test_broken_pattern_do_while_condition_has_own_parenthesis_lines() -> None:
+    check(
+        'do { Run(); } while (error is SocketException or ObjectDisposedException or OperationCanceledException);',
+        'do\n{\n    Run();\n}\n\nwhile (\n    error is SocketException\n'
+        '        or ObjectDisposedException\n        or OperationCanceledException\n);\n',
+        max_line_length=65,
+    )
+
+
+@pytest.mark.parametrize("keyword", ["if", "while"])
+def test_short_pattern_condition_stays_inline(keyword: str) -> None:
+    check(f'{keyword} (x is A or B) {{ Run(); }}', f'{keyword} (x is A or B)\n{{\n    Run();\n}}\n')
+
+
+@pytest.mark.parametrize("keyword", ["if", "while"])
+def test_multiline_predicate_condition_uses_own_parenthesis_lines(keyword: str) -> None:
+    check(
+        f'{keyword} (Predicate(veryLongArgumentName, anotherLongArgumentName)) {{ Run(); }}',
+        f'{keyword} (\n    Predicate(\n        veryLongArgumentName,\n'
+        '        anotherLongArgumentName\n    )\n)\n{\n    Run();\n}\n',
+        max_line_length=50,
+    )
+
+
+@pytest.mark.parametrize("wrap", ["before_operator", "after_operator"])
+def test_pattern_conditions_respect_alternative_parenthesis_layout(wrap: str) -> None:
+    if wrap == "after_operator":
+        pattern = 'error is SocketException or\n    ObjectDisposedException or\n    OperationCanceledException'
+    else:
+        pattern = 'error is SocketException\n    or ObjectDisposedException\n    or OperationCanceledException'
+    check(
+        'if (error is SocketException or ObjectDisposedException or OperationCanceledException) { Run(); }',
+        f'if ({pattern})\n{{\n    Run();\n}}\n',
+        max_line_length=65,
+        binary_wrap=wrap,
     )
 
 
@@ -955,9 +1014,9 @@ def test_empty_catch_and_lambda_bodies_after_a_header_that_spans_lines() -> None
             try { }
 
             // Ignored.
-            catch (Exception error) when (IsRecoverable(
-                error
-            ))
+            catch (Exception error) when (
+                IsRecoverable(error)
+            )
             { }
 
             Run((

@@ -874,8 +874,16 @@ class Expressions(Core):
     def p_is_expression(self, node: Node) -> Doc:
         return self.spaced(node.children)
 
-    def p_is_pattern_expression(self, node: Node) -> Doc:
-        return self.spaced(node.children)
+    def p_is_pattern_expression(self, node: Node, *, in_condition: bool = False) -> Doc:
+        pattern = node.child("pattern")
+        if not in_condition or pattern is None or pattern.verbatim or pattern.type not in (
+            "and_pattern", "or_pattern", "negated_pattern"
+        ):
+            return self.spaced(node.children)
+        return join(" ", [
+            self.logical_pattern(child, group_result=False) if child is pattern else self.print(child)
+            for child in node.children
+        ])
 
     def p_range_expression(self, node: Node) -> Doc:
         return self.join_tokens([(c, self.print(c)) for c in node.children])
@@ -953,7 +961,7 @@ class Expressions(Core):
     def p_negated_pattern(self, node: Node) -> Doc:
         return self.logical_pattern(node)
 
-    def logical_pattern(self, node: Node) -> Doc:
+    def logical_pattern(self, node: Node, *, group_result: bool = True) -> Doc:
         # The grammar nests `not A and not B` under successive negations,
         # sometimes including trailing &&/|| expressions in constant patterns.
         # Share a continuation level without moving any tokens or parentheses.
@@ -986,7 +994,8 @@ class Expressions(Core):
                 rest.append([" ", self.tok(operator), LINE, self.spaced(segment)])
             else:
                 rest.append([LINE, self.tok(operator), " ", self.spaced(segment)])
-        return group([first, indent(rest)])
+        contents: Doc = [first, indent(rest)]
+        return group(contents) if group_result else contents
 
     def p_declaration_pattern(self, node: Node) -> Doc:
         return self.spaced(node.children)
