@@ -2,6 +2,15 @@
 
 Each release's section becomes the body of its GitHub release.
 
+## [1.1.10] - 2026-10-18
+
+- A tuple argument ending in a multiline block lambda closes the tuple and
+  call parentheses on their own line at the call's indentation, matching
+  Visual Studio's formatting. Ordinary lambda arguments keep their layout.
+- Empty argument parentheses without interior comments stay together as
+  `()`. Long empty-constructor assignments break after `=` instead of
+  splitting the parentheses. Interior comments are preserved.
+
 ## [1.1.9] - 2026-10-18
 
 - With the default `binary_wrap`, multiline conditions in catch filters,

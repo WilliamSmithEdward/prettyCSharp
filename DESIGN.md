@@ -177,6 +177,14 @@ parenthesis unless all three clauses are empty: `for (; ; )`.
 | `ternary_wrap` | `before`: break before `?` and `:` when too long | `after`, `always` |
 | `lambda_body` | `hug`: the last argument hangs off the call line when it is a lambda with a block body or a broken member chain, or a creation with a broken initializer | `argument` |
 
+With `lambda_body = "hug"` and `argument_wrap = "one_per_line"`, a single
+tuple argument ending in a multiline block lambda closes both enclosing
+parentheses on their own line at the call's indentation.
+
+Empty argument parentheses without interior comments stay together as `()`.
+An overlong assignment to an empty constructor breaks after `=` instead of
+splitting the empty parentheses.
+
 `binary_wrap` also controls line breaks in `or` and `and` patterns.
 With `before_operator_paren_own_line`, broken conditions in catch
 filters, `if`, `while`, and `do` loops put the expression below `(` and `)`

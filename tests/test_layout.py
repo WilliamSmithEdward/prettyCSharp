@@ -896,6 +896,30 @@ def test_empty_collection_moves_to_the_next_line_whole() -> None:
     )
 
 
+def test_long_empty_constructor_keeps_parentheses_together() -> None:
+    check(
+        'private readonly ConcurrentDictionary<IPAddress, ConcurrentBag<long>> _failRegexMatches = '
+        'new ConcurrentDictionary<IPAddress, ConcurrentBag<long>>();',
+        'private readonly ConcurrentDictionary<IPAddress, ConcurrentBag<long>> _failRegexMatches =\n'
+        '    new ConcurrentDictionary<IPAddress, ConcurrentBag<long>>();\n',
+    )
+
+
+@pytest.mark.parametrize("wrap", ["one_per_line", "one_per_line_close_on_last", "fill", "align"])
+def test_empty_call_parentheses_never_split(wrap: str) -> None:
+    check(
+        'SomeVeryLongMethodName();', 'SomeVeryLongMethodName();\n',
+        max_line_length=12, argument_wrap=wrap,
+    )
+
+
+def test_comments_inside_empty_constructor_are_preserved() -> None:
+    source = 'var instance = new Item( // Keep this note.\n);'
+    output = fmt(source)
+    assert '// Keep this note.\n' in output
+    assert fmt(output) == output
+
+
 def test_spread_elements_are_spaced_and_ranges_are_not() -> None:
     assert fmt("x = [..entries, 1, ..more];\n") == "x = [.. entries, 1, .. more];\n"
     assert fmt("var r = entries[1..] + entries[..2] + entries[..];\n") == (
@@ -1078,6 +1102,26 @@ def test_auto_properties_and_empty_bodies_stay_on_one_line() -> None:
         }
         """,
     )
+
+
+def test_tuple_block_lambda_closes_parentheses_on_the_call_line_indent() -> None:
+    check(
+        '_dataHandlerPairs.Add((data, (ctx, route) => { handler(ctx, route); return Task.CompletedTask; }));',
+        '_dataHandlerPairs.Add((data, (ctx, route) =>\n'
+        '    {\n        handler(ctx, route);\n        return Task.CompletedTask;\n    }\n));\n',
+    )
+
+
+def test_ordinary_block_lambda_argument_keeps_hugged_parenthesis() -> None:
+    check(
+        'Run(data, (ctx, route) => { handler(ctx, route); return Task.CompletedTask; });',
+        'Run(data, (ctx, route) =>\n'
+        '{\n    handler(ctx, route);\n    return Task.CompletedTask;\n});\n',
+    )
+
+
+def test_empty_tuple_lambda_stays_inline() -> None:
+    check('Run((data, () => { }));', 'Run((data, () => { }));\n')
 
 
 def test_object_initializer_hugs_the_last_argument() -> None:
