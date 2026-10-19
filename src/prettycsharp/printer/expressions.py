@@ -228,6 +228,14 @@ class Expressions(Core):
         if value.verbatim:
             return False
         kind = value.type
+        if kind in ("object_creation_expression", "implicit_object_creation_expression") and not self.block_like(value):
+            arguments = value.first_of("argument_list")
+            if arguments is not None and len(arguments.children) == 2:
+                opening, closing = arguments.children
+                if not opening.trailing and not closing.leading:
+                    # An empty constructor cannot break internally; move the
+                    # whole value after the assignment operator when needed.
+                    return False
         if kind in _SELF_BREAKING:
             return True
         if kind == "await_expression":
@@ -461,7 +469,31 @@ class Expressions(Core):
         close_tok = node.children[-1]
         items, commas = self.items_and_commas(node)
         if not items:
+            if not open_tok.trailing and not close_tok.leading:
+                return [self.tok(open_tok), self.tok(close_tok)]
             return group([self.tok(open_tok), self.closing(close_tok, SOFTLINE)])
+        if (
+            node.type == "argument_list" and self.settings.lambda_body == "hug"
+            and self.settings.argument_wrap == "one_per_line" and len(items) == 1 and len(items[0]) == 1
+        ):
+            argument = items[0][0]
+            target = argument.children[-1] if argument.type == "argument" and len(argument.children) == 1 else argument
+            if target.type == "tuple_expression" and not target.verbatim:
+                tuple_items, tuple_commas = self.items_and_commas(target)
+                last = tuple_items[-1][0] if tuple_items and len(tuple_items[-1]) == 1 else None
+                value = last.children[-1] if last is not None and last.type == "argument" and last.children else last
+                body = value.child("body") if value is not None and value.type == "lambda_expression" else None
+                if (
+                    body is not None and body.type == "block" and self._can_hug(tuple_items)
+                    and (len(body.children) > 2 or any(t.leading or t.trailing for t in body.tokens()))
+                ):
+                    # Keep the tuple's lambda with the call header, but close
+                    # both parentheses at the call's indentation after its body.
+                    tuple_docs = self._comma_docs(tuple_items, tuple_commas)
+                    return [
+                        self.tok(open_tok), indent([self.tok(target.children[0]), join(" ", tuple_docs)]),
+                        self.closing(target.children[-1], HARDLINE), self.closing(close_tok, ""),
+                    ]
         docs = [self.print_item(item) for item in items]
         for i, comma in enumerate(commas):
             if i < len(docs):
