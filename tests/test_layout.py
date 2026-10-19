@@ -154,6 +154,16 @@ def test_short_logical_patterns_keep_grouping_and_stay_inline(pattern: str) -> N
     check(f"var ok=value is {pattern};", f"var ok = value is {pattern};\n")
 
 
+def test_negated_pattern_chain_and_boolean_tail_share_one_indent() -> None:
+    check(
+        "var persistent = _status is not 400 and not 408 and not 411 and not 413 and not 414 "
+        "and not 500 and not 503 && !_transport.IsDraining && KeepAlive;",
+        "var persistent = _status is not 400\n"
+        "    and not 408\n    and not 411\n    and not 413\n    and not 414\n"
+        "    and not 500\n    and not 503\n    && !_transport.IsDraining\n    && KeepAlive;\n",
+    )
+
+
 def test_call_breaks_one_argument_per_line_with_paren_on_its_own_line() -> None:
     check(
         """
@@ -831,6 +841,50 @@ def test_spread_elements_are_spaced_and_ranges_are_not() -> None:
     assert fmt("x = [..entries, 1, ..more];\n") == "x = [.. entries, 1, .. more];\n"
     assert fmt("var r = entries[1..] + entries[..2] + entries[..];\n") == (
         "var r = entries[1..] + entries[..2] + entries[..];\n"
+    )
+
+
+@pytest.mark.parametrize("element", ['new HpackField(wire, "")', "GetField()", "wire.Length + 1", "wire"])
+@pytest.mark.parametrize("simple_inline", [True, False])
+def test_inline_collection_brackets_stay_tight(element: str, simple_inline: bool) -> None:
+    check(
+        f"Validate([ {element} ]);",
+        f"Validate([{element}]);\n",
+        simple_lists_inline=simple_inline,
+    )
+
+
+def test_collection_brackets_in_awaited_send_stay_tight() -> None:
+    check(
+        'await SendAsync([ new Http2Frame(6, 1, 0, frame.Payload) ], token).ConfigureAwait(false);',
+        'await SendAsync([new Http2Frame(6, 1, 0, frame.Payload)], token).ConfigureAwait(false);\n',
+    )
+
+
+def test_multiline_collection_argument_has_no_extra_blank_line() -> None:
+    check(
+        'await SendHeadersAsync([new HpackField(":status", "200"), '
+        'new HpackField("content-length", bytes.Length.ToString(CultureInfo.InvariantCulture))], '
+        'bytes.Length == 0 || Request.Method == "HEAD", token).ConfigureAwait(false);',
+        'await SendHeadersAsync(\n'
+        '    [\n'
+        '        new HpackField(":status", "200"),\n'
+        '        new HpackField("content-length", bytes.Length.ToString(CultureInfo.InvariantCulture))\n'
+        '    ],\n'
+        '    bytes.Length == 0 || Request.Method == "HEAD",\n'
+        '    token\n'
+        ').ConfigureAwait(false);\n',
+    )
+
+
+def test_spread_of_call_in_multiline_arguments_keeps_brackets_tight() -> None:
+    check(
+        '_session = Session.Start([ .. _prefixes.Select(value => new ListenerPrefix(value)) ], '
+        '_certificates, TlsPolicy, _native, DeferContinue, Telemetry, _bodyPolicy, _dispatcher);',
+        '_session = Session.Start(\n'
+        '    [.. _prefixes.Select(value => new ListenerPrefix(value))],\n'
+        '    _certificates,\n    TlsPolicy,\n    _native,\n    DeferContinue,\n'
+        '    Telemetry,\n    _bodyPolicy,\n    _dispatcher\n);\n',
     )
 
 

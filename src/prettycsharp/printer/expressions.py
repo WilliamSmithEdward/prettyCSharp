@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from prettycsharp.doc import (
+    ENSURE_LINE,
     HARDLINE,
     LINE,
     SOFTLINE,
@@ -678,7 +679,10 @@ class Expressions(Core):
             return group([self.tok(open_tok), indent([SOFTLINE, body]), self.closing(close_tok, SOFTLINE)])
         force = self._forced_initializer([[_element_value(i[0])] for i in items if len(i) == 1])
         return group(
-            [SOFTLINE, self.tok(open_tok), indent([LINE, join(LINE, docs)]), self.closing(close_tok, LINE)],
+            [
+                IfBreak(ENSURE_LINE, ""), self.tok(open_tok),
+                indent([SOFTLINE, join(LINE, docs)]), self.closing(close_tok, SOFTLINE),
+            ],
             should_break=force,
         )
 
@@ -941,13 +945,48 @@ class Expressions(Core):
         return self.spaced(node.children)
 
     def p_and_pattern(self, node: Node) -> Doc:
-        return self.binary(node, in_condition=False)
+        return self.logical_pattern(node)
 
     def p_or_pattern(self, node: Node) -> Doc:
-        return self.binary(node, in_condition=False)
+        return self.logical_pattern(node)
 
     def p_negated_pattern(self, node: Node) -> Doc:
-        return self.spaced(node.children)
+        return self.logical_pattern(node)
+
+    def logical_pattern(self, node: Node) -> Doc:
+        # The grammar nests `not A and not B` under successive negations,
+        # sometimes including trailing &&/|| expressions in constant patterns.
+        # Share a continuation level without moving any tokens or parentheses.
+        segments: list[list[Node]] = [[]]
+        operators: list[Node] = []
+        stack = [node]
+        while stack:
+            current = stack.pop()
+            if current.type == "constant_pattern" and len(current.children) == 1 and not current.verbatim:
+                value = current.children[0]
+                value_op = value.child("operator")
+                if value.type == "binary_expression" and value_op is not None and value_op.text in ("&&", "||"):
+                    stack.append(value)
+                    continue
+            op = current.child("operator")
+            logical = current.type in ("and_pattern", "or_pattern", "negated_pattern") or (
+                current.type == "binary_expression" and op is not None and op.text in ("&&", "||")
+            )
+            if logical and not current.verbatim:
+                stack.extend(reversed(current.children))
+            elif not current.named and current.text in ("and", "or", "&&", "||"):
+                operators.append(current)
+                segments.append([])
+            else:
+                segments[-1].append(current)
+        first = self.spaced(segments[0])
+        rest: list[Doc] = []
+        for operator, segment in zip(operators, segments[1:], strict=True):
+            if self.settings.binary_wrap == "after_operator":
+                rest.append([" ", self.tok(operator), LINE, self.spaced(segment)])
+            else:
+                rest.append([LINE, self.tok(operator), " ", self.spaced(segment)])
+        return group([first, indent(rest)])
 
     def p_declaration_pattern(self, node: Node) -> Doc:
         return self.spaced(node.children)

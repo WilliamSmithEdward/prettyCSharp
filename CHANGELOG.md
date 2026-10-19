@@ -2,6 +2,16 @@
 
 Each release's section becomes the body of its GitHub release.
 
+## [1.1.9] - 2026-10-18
+
+- Inline collection expressions keep tight brackets around complex elements
+  and spreads, such as `[new HpackField(wire, "")]` and `[.. source.Select(...)]`,
+  avoiding Visual Studio's IDE0055 formatting diagnostic.
+- A multiline collection argument no longer adds a blank line after the
+  call's opening parenthesis.
+- Chains of negated patterns, including `is not A and not B` followed by
+  Boolean operators, wrap at one consistent continuation indentation level.
+
 ## [1.1.8] - 2026-10-18
 
 - Long `or` and `and` patterns wrap at the configured line width using
