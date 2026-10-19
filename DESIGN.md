@@ -178,6 +178,12 @@ parenthesis unless all three clauses are empty: `for (; ; )`.
 | `lambda_body` | `hug`: the last argument hangs off the call line when it is a lambda with a block body or a broken member chain, or a creation with a broken initializer | `argument` |
 
 `binary_wrap` also controls line breaks in `or` and `and` patterns.
+With `before_operator_paren_own_line`, broken conditions in catch
+filters, `if`, `while`, and `do` loops put the expression below `(` and `)`
+on its own line, including predicate calls and mixed Boolean/pattern
+conditions. Pattern operators take one further continuation indent.
+Negated pattern chains and trailing Boolean operators share one continuation
+indent, including `value is not A and not B && condition`.
 
 ```csharp
 var invoice = invoiceService.CreateInvoice(
@@ -224,6 +230,11 @@ orders.ForEach(order =>
 | `initializer_break_threshold` | `2`: object initializers, anonymous types, and lists of complex items break at 2 or more members | any integer, `0` to break only past `max_line_length` |
 | `simple_lists_inline` | `true`: lists of literals, constants, and plain names stay on one line when they fit | `false` |
 | `trailing_commas` | `remove` | `add`, `preserve` |
+
+Inline collection expressions keep their brackets tight, including complex
+elements: `[new Item()]`. Broken collections put the elements on new lines.
+When a collection starts on an argument's own line, its opening bracket
+does not add another line break.
 
 ```csharp
 var empty = new Order { Id = 42 };

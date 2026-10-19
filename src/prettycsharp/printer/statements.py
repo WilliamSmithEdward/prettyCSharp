@@ -144,13 +144,18 @@ class Statements(Expressions):
     def condition(self, open_tok: Node, condition: Node, close_tok: Node) -> Doc:
         if (
             self.settings.binary_wrap == "before_operator_paren_own_line"
-            and condition.type == "binary_expression"
             and not condition.verbatim
         ):
+            if condition.type == "binary_expression":
+                contents = self.binary(condition, in_condition=True)
+            elif condition.type == "is_pattern_expression":
+                contents = self.p_is_pattern_expression(condition, in_condition=True)
+            else:
+                contents = self.print(condition)
             return group(
                 [
                     self.tok(open_tok),
-                    indent([SOFTLINE, self.binary(condition, in_condition=True)]),
+                    indent([SOFTLINE, contents]),
                     SOFTLINE,
                     self.tok(close_tok),
                 ]

@@ -113,8 +113,67 @@ def test_catch_filter_wraps_logical_pattern_before_expanding_property_pattern() 
         'try { Run(); } catch (Exception error) when (error is ObjectDisposedException or SocketException '
         'or ArgumentException { ParamName: "socketAddress" }) { Stop(); }',
         'try\n{\n    Run();\n}\n\n'
-        'catch (Exception error) when (error is ObjectDisposedException\n'
-        '    or SocketException\n    or ArgumentException { ParamName: "socketAddress" })\n{\n    Stop();\n}\n',
+        'catch (Exception error) when (\n    error is ObjectDisposedException\n'
+        '        or SocketException\n        or ArgumentException { ParamName: "socketAddress" }\n)\n{\n    Stop();\n}\n',
+    )
+
+
+def test_broken_pattern_catch_filter_puts_parentheses_on_own_lines() -> None:
+    check(
+        'try { Run(); } catch (Exception error) when '
+        '(error is SocketException or ObjectDisposedException or OperationCanceledException) { }',
+        'try\n{\n    Run();\n}\n\ncatch (Exception error) when (\n'
+        '    error is SocketException\n        or ObjectDisposedException\n'
+        '        or OperationCanceledException\n)\n{ }\n',
+        max_line_length=90,
+    )
+
+
+@pytest.mark.parametrize("keyword", ["if", "while"])
+def test_broken_pattern_conditions_share_catch_filter_layout(keyword: str) -> None:
+    check(
+        f'{keyword} (error is SocketException or ObjectDisposedException or OperationCanceledException) {{ Stop(); }}',
+        f'{keyword} (\n    error is SocketException\n        or ObjectDisposedException\n'
+        '        or OperationCanceledException\n)\n{\n    Stop();\n}\n',
+        max_line_length=65,
+    )
+
+
+def test_broken_pattern_do_while_condition_has_own_parenthesis_lines() -> None:
+    check(
+        'do { Run(); } while (error is SocketException or ObjectDisposedException or OperationCanceledException);',
+        'do\n{\n    Run();\n}\n\nwhile (\n    error is SocketException\n'
+        '        or ObjectDisposedException\n        or OperationCanceledException\n);\n',
+        max_line_length=65,
+    )
+
+
+@pytest.mark.parametrize("keyword", ["if", "while"])
+def test_short_pattern_condition_stays_inline(keyword: str) -> None:
+    check(f'{keyword} (x is A or B) {{ Run(); }}', f'{keyword} (x is A or B)\n{{\n    Run();\n}}\n')
+
+
+@pytest.mark.parametrize("keyword", ["if", "while"])
+def test_multiline_predicate_condition_uses_own_parenthesis_lines(keyword: str) -> None:
+    check(
+        f'{keyword} (Predicate(veryLongArgumentName, anotherLongArgumentName)) {{ Run(); }}',
+        f'{keyword} (\n    Predicate(\n        veryLongArgumentName,\n'
+        '        anotherLongArgumentName\n    )\n)\n{\n    Run();\n}\n',
+        max_line_length=50,
+    )
+
+
+@pytest.mark.parametrize("wrap", ["before_operator", "after_operator"])
+def test_pattern_conditions_respect_alternative_parenthesis_layout(wrap: str) -> None:
+    if wrap == "after_operator":
+        pattern = 'error is SocketException or\n    ObjectDisposedException or\n    OperationCanceledException'
+    else:
+        pattern = 'error is SocketException\n    or ObjectDisposedException\n    or OperationCanceledException'
+    check(
+        'if (error is SocketException or ObjectDisposedException or OperationCanceledException) { Run(); }',
+        f'if ({pattern})\n{{\n    Run();\n}}\n',
+        max_line_length=65,
+        binary_wrap=wrap,
     )
 
 
@@ -152,6 +211,16 @@ def test_long_logical_patterns_wrap(operator: str, wrap: str) -> None:
 @pytest.mark.parametrize("pattern", ["A or B", "A and B", "A or B and C", "(A or B) and C"])
 def test_short_logical_patterns_keep_grouping_and_stay_inline(pattern: str) -> None:
     check(f"var ok=value is {pattern};", f"var ok = value is {pattern};\n")
+
+
+def test_negated_pattern_chain_and_boolean_tail_share_one_indent() -> None:
+    check(
+        "var persistent = _status is not 400 and not 408 and not 411 and not 413 and not 414 "
+        "and not 500 and not 503 && !_transport.IsDraining && KeepAlive;",
+        "var persistent = _status is not 400\n"
+        "    and not 408\n    and not 411\n    and not 413\n    and not 414\n"
+        "    and not 500\n    and not 503\n    && !_transport.IsDraining\n    && KeepAlive;\n",
+    )
 
 
 def test_call_breaks_one_argument_per_line_with_paren_on_its_own_line() -> None:
@@ -834,6 +903,50 @@ def test_spread_elements_are_spaced_and_ranges_are_not() -> None:
     )
 
 
+@pytest.mark.parametrize("element", ['new HpackField(wire, "")', "GetField()", "wire.Length + 1", "wire"])
+@pytest.mark.parametrize("simple_inline", [True, False])
+def test_inline_collection_brackets_stay_tight(element: str, simple_inline: bool) -> None:
+    check(
+        f"Validate([ {element} ]);",
+        f"Validate([{element}]);\n",
+        simple_lists_inline=simple_inline,
+    )
+
+
+def test_collection_brackets_in_awaited_send_stay_tight() -> None:
+    check(
+        'await SendAsync([ new Http2Frame(6, 1, 0, frame.Payload) ], token).ConfigureAwait(false);',
+        'await SendAsync([new Http2Frame(6, 1, 0, frame.Payload)], token).ConfigureAwait(false);\n',
+    )
+
+
+def test_multiline_collection_argument_has_no_extra_blank_line() -> None:
+    check(
+        'await SendHeadersAsync([new HpackField(":status", "200"), '
+        'new HpackField("content-length", bytes.Length.ToString(CultureInfo.InvariantCulture))], '
+        'bytes.Length == 0 || Request.Method == "HEAD", token).ConfigureAwait(false);',
+        'await SendHeadersAsync(\n'
+        '    [\n'
+        '        new HpackField(":status", "200"),\n'
+        '        new HpackField("content-length", bytes.Length.ToString(CultureInfo.InvariantCulture))\n'
+        '    ],\n'
+        '    bytes.Length == 0 || Request.Method == "HEAD",\n'
+        '    token\n'
+        ').ConfigureAwait(false);\n',
+    )
+
+
+def test_spread_of_call_in_multiline_arguments_keeps_brackets_tight() -> None:
+    check(
+        '_session = Session.Start([ .. _prefixes.Select(value => new ListenerPrefix(value)) ], '
+        '_certificates, TlsPolicy, _native, DeferContinue, Telemetry, _bodyPolicy, _dispatcher);',
+        '_session = Session.Start(\n'
+        '    [.. _prefixes.Select(value => new ListenerPrefix(value))],\n'
+        '    _certificates,\n    TlsPolicy,\n    _native,\n    DeferContinue,\n'
+        '    Telemetry,\n    _bodyPolicy,\n    _dispatcher\n);\n',
+    )
+
+
 def test_empty_body_after_a_header_that_spans_lines_gets_its_own_line() -> None:
     # Visual Studio (IDE0055) keeps `{ }` on the header's line only when the
     # header is one line.
@@ -901,9 +1014,9 @@ def test_empty_catch_and_lambda_bodies_after_a_header_that_spans_lines() -> None
             try { }
 
             // Ignored.
-            catch (Exception error) when (IsRecoverable(
-                error
-            ))
+            catch (Exception error) when (
+                IsRecoverable(error)
+            )
             { }
 
             Run((
