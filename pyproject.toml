@@ -42,7 +42,7 @@ dependencies = [
 [project.optional-dependencies]
 # Exact pins, so the gate does not drift under main. They match
 # .github/requirements/test.in; Dependabot proposes new versions.
-dev = ["pytest==9.1.1", "ruff==0.17.0", "mypy==2.4.0"]
+dev = ["pytest==9.1.1", "ruff==0.17.1", "mypy==2.4.0"]
 
 [project.scripts]
 prettycsharp = "prettycsharp.cli:main"
