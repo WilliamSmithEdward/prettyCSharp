@@ -1,0 +1,96 @@
+name: Relock Dependabot updates
+
+# The same in every repository; the canonical copy lives in
+# WilliamSmithEdward/repo-standards (templates/relock), with .github/relock.py.
+# Dependabot rebuilds uv's hash-locked requirement files with its own
+# pip-compile, dropping setuptools, pip and the platform markers, and rewrites
+# a multi-framework packages.lock.json for one target framework only, so its
+# pull requests fail CI and never merge. This job rebuilds what a Dependabot
+# push changed the way the locks are built (relock.py), and if that differs,
+# the Repo Bot App pushes it to the pull request's branch; CI, Security and
+# Malware scan then run on that commit and auto-merge proceeds as usual.
+#
+# The relock runs with no secret: the App's token is made only afterwards,
+# for the push, and only if the relock changed something. On the App's own
+# commit it changes nothing, so the job ends there. The key is a Dependabot
+# secret (YARA_APP.md).
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: relock-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  relock:
+    name: Relock what Dependabot changed
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]'
+      && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      # uv's version is pinned here and moved by hand; setup-uv is followed by
+      # Dependabot. The locks record the command, not the uv version.
+      - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+        with:
+          version: "0.13.4"
+          enable-cache: false
+
+      - name: Set up .NET for a repository that has one
+        if: hashFiles('global.json') != ''
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Relock what the pull request changed
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python3 .github/relock.py "$BASE_SHA"
+
+      - name: See whether anything changed
+        id: diff
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "The locks are already as uv and dotnet build them." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git diff --stat >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Create a token for this repository
+        if: steps.diff.outputs.changed == 'true'
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          # The App's client ID, the same in every repository and not a
+          # secret; written here because a Dependabot run may not read vars.
+          client-id: Iv23lisr25w1fELw127J
+          private-key: ${{ secrets.YARA_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Push the relock to the pull request's branch
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          git -c core.hooksPath=/dev/null \
+              -c user.name="williamsmithedward-repo-bot[bot]" \
+              -c user.email="338007143+williamsmithedward-repo-bot[bot]@users.noreply.github.com" \
+              commit -a -q -m "Relock with the locks' own commands" \
+                     -m "Dependabot's rebuild dropped what uv or dotnet restore keeps; relock.py rebuilt each changed lock from the base branch, keeping the versions this pull request moves."
+          git -c core.hooksPath=/dev/null -c "http.extraheader=AUTHORIZATION: basic $auth" \
+              push origin "HEAD:refs/heads/$HEAD_REF"
