@@ -5,28 +5,45 @@ WilliamSmithEdward/repo-standards (templates/relock). Dependabot recompiles
 uv's hash-locked requirement files with its own pip-compile, which drops
 setuptools, pip and the platform markers, and rewrites a multi-framework
 packages.lock.json for one target framework only. Either way CI fails and
-the update never merges. relock-dependabot.yml runs this on a Dependabot
-branch and pushes whatever it changes.
+the update never merges. relock-dependabot.yml runs this in two jobs:
 
-For each changed lock file that records a `uv pip compile` command on its
-second line, the file starts again from the base branch's copy and that
-command runs with `--upgrade-package name==version` for every package whose
-pinned version the pull request moved, so the moves Dependabot meant are
-kept and nothing else changes. If any packages.lock.json, project file or
-Directory.Packages.props changed, `dotnet restore --force-evaluate` runs on
-the repository's solution.
+  relock <base-ref> <out-dir>
+      On the pull request's branch, with no secret. For each changed lock
+      file that records a `uv pip compile` command on its second line, the
+      file starts again from the base branch's copy and that command runs
+      with `--upgrade-package name==version` for every package whose pinned
+      version the pull request moved, so the moves Dependabot meant are kept
+      and nothing else changes. If any packages.lock.json, project file or
+      Directory.Packages.props changed, `dotnet restore --force-evaluate`
+      runs on the repository's solution. Every file that then differs is
+      copied into <out-dir>, with manifest.json listing them.
 
-Usage: python relock.py <base-ref>     (from the repository root)
-Prints one line per file it rebuilt; exits non-zero on a failed command.
+  push <in-dir>
+      From the base branch's copy of this script, with the Repo Bot App's
+      token in GH_TOKEN and GITHUB_REPOSITORY, HEAD_REF and HEAD_SHA set.
+      Accepts only files that already exist at HEAD_SHA and are lock files
+      (a packages.lock.json, or a requirement file whose second line is a
+      `uv pip compile` command), and commits them onto HEAD_SHA through the
+      API, moving HEAD_REF only if it has not moved since. It never runs the
+      pull request's code.
 """
+import base64
+import json
+import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
-from pathlib import Path
+import urllib.request
+from pathlib import Path, PurePosixPath
 
 PIN = re.compile(r"^([A-Za-z0-9][A-Za-z0-9._-]*)==([^\s;\\]+)", re.M)
 DOTNET_INPUTS = ("packages.lock.json", ".csproj", "Directory.Packages.props")
+MESSAGE = ("Relock with the locks' own commands\n\n"
+           "Dependabot's rebuild dropped what uv or dotnet restore keeps; relock.py\n"
+           "rebuilt each changed lock from the base branch, keeping the versions this\n"
+           "pull request moves.")
 
 
 def git(*args):
@@ -45,41 +62,88 @@ def uv_command(text):
     return shlex.split(command) if command.startswith("uv pip compile ") else None
 
 
+def is_lock(path, text):
+    return path.endswith("packages.lock.json") or (path.endswith(".txt") and uv_command(text) is not None)
+
+
 def relock_requirements(base, path):
     head = Path(path).read_text(encoding="utf-8")
     command = uv_command(head)
     if command is None:
-        return False
+        return
     try:
         old = git("show", f"{base}:{path}")
     except subprocess.CalledProcessError:
-        return False  # a new lock file: nothing to start again from
+        return  # a new lock file: nothing to start again from
     moved = [f"{name}=={version}" for name, version in pins(head).items()
              if pins(old).get(name) not in (None, version)]
     Path(path).write_text(old, encoding="utf-8", newline="\n")
     upgrades = [arg for spec in moved for arg in ("--upgrade-package", spec)]
     subprocess.run(command + upgrades + ["--quiet"], cwd=Path(path).parent, check=True)
     print(f"relocked {path}" + (f" ({', '.join(moved)})" if moved else ""))
-    return True
 
 
-def solution():
-    found = sorted(Path(".").glob("*.sln")) + sorted(Path(".").glob("*.slnx"))
-    return str(found[0]) if found else None
-
-
-def main():
-    base = sys.argv[1]
+def relock(base, out):
     changed = git("diff", "--name-only", f"{base}...HEAD").split()
     for path in changed:
         if path.endswith(".txt") and Path(path).is_file():
             relock_requirements(base, path)
     if any(path.endswith(DOTNET_INPUTS) for path in changed):
-        sln = solution()
-        if sln:
-            subprocess.run(["dotnet", "restore", sln, "--force-evaluate"], check=True)
-            print(f"restored {sln} with --force-evaluate")
+        found = sorted(Path(".").glob("*.sln")) + sorted(Path(".").glob("*.slnx"))
+        if found:
+            subprocess.run(["dotnet", "restore", str(found[0]), "--force-evaluate"], check=True)
+            print(f"restored {found[0]} with --force-evaluate")
+    differ = git("diff", "--name-only").split()
+    out = Path(out)
+    out.mkdir(parents=True, exist_ok=True)
+    for path in differ:
+        (out / "files" / path).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(path, out / "files" / path)
+    (out / "manifest.json").write_text(json.dumps(differ), encoding="utf-8")
+    print(f"{len(differ)} file(s) to push")
+
+
+def api(method, url, body=None):
+    request = urllib.request.Request(
+        f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/{url}",
+        data=None if body is None else json.dumps(body).encode(), method=method,
+        headers={"Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+                 "Accept": "application/vnd.github+json",
+                 "X-GitHub-Api-Version": "2022-11-28"})
+    with urllib.request.urlopen(request, timeout=60) as response:
+        return json.loads(response.read() or b"null")
+
+
+def push(src):
+    src = Path(src)
+    head_ref, head_sha = os.environ["HEAD_REF"], os.environ["HEAD_SHA"]
+    paths = json.loads((src / "manifest.json").read_text(encoding="utf-8"))
+    tree = []
+    for path in paths:
+        posix = PurePosixPath(path)
+        if posix.is_absolute() or ".." in posix.parts:
+            sys.exit(f"refused {path}: not a plain path inside the repository")
+        current = api("GET", f"contents/{path}?ref={head_sha}")
+        text = base64.b64decode(current["content"]).decode("utf-8")
+        if not is_lock(path, text):
+            sys.exit(f"refused {path}: not a lock file at {head_sha}")
+        content = (src / "files" / path).read_text(encoding="utf-8")
+        blob = api("POST", "git/blobs", {"content": content, "encoding": "utf-8"})
+        tree.append({"path": path, "mode": "100644", "type": "blob", "sha": blob["sha"]})
+    if not tree:
+        print("nothing to push")
+        return
+    base_tree = api("GET", f"git/commits/{head_sha}")["tree"]["sha"]
+    new_tree = api("POST", "git/trees", {"base_tree": base_tree, "tree": tree})
+    commit = api("POST", "git/commits", {"message": MESSAGE, "tree": new_tree["sha"], "parents": [head_sha]})
+    api("PATCH", f"git/refs/heads/{head_ref}", {"sha": commit["sha"], "force": False})
+    print(f"pushed {commit['sha']} to {head_ref}: {', '.join(paths)}")
 
 
 if __name__ == "__main__":
-    main()
+    if sys.argv[1:2] == ["relock"] and len(sys.argv) == 4:
+        relock(sys.argv[2], sys.argv[3])
+    elif sys.argv[1:2] == ["push"] and len(sys.argv) == 3:
+        push(sys.argv[2])
+    else:
+        sys.exit(__doc__)
