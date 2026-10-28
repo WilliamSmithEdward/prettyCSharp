@@ -28,7 +28,6 @@ the update never merges. relock-dependabot.yml runs this in two jobs:
       pull request's code.
 """
 import base64
-import http.client
 import json
 import os
 import re
@@ -104,24 +103,16 @@ def relock(base, out):
 
 
 def api(method, url, body=None):
-    """One call to the GitHub REST API for this repository, over HTTPS to
-    api.github.com only."""
-    connection = http.client.HTTPSConnection("api.github.com", timeout=60)
-    try:
-        connection.request(
-            method, f"/repos/{os.environ['GITHUB_REPOSITORY']}/{url}",
-            body=None if body is None else json.dumps(body),
-            headers={"Authorization": f"Bearer {os.environ['GH_TOKEN']}",
-                     "Accept": "application/vnd.github+json",
-                     "X-GitHub-Api-Version": "2022-11-28",
-                     "User-Agent": "relock.py"})
-        response = connection.getresponse()
-        data = response.read()
-        if response.status >= 400:
-            sys.exit(f"{method} {url}: HTTP {response.status} {data[:300]!r}")
-        return json.loads(data or b"null")
-    finally:
-        connection.close()
+    """One call to the GitHub REST API for this repository, through the gh
+    CLI the runner provides, which reads the App's token from GH_TOKEN."""
+    command = ["gh", "api", "--method", method, f"repos/{os.environ['GITHUB_REPOSITORY']}/{url}"]
+    if body is not None:
+        command += ["--input", "-"]
+    result = subprocess.run(command, input=None if body is None else json.dumps(body),
+                            capture_output=True, text=True, timeout=120)
+    if result.returncode != 0:
+        sys.exit(f"{method} {url} failed: {result.stderr.strip()[:300]}")
+    return json.loads(result.stdout or "null")
 
 
 def push(src):
