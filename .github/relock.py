@@ -18,18 +18,16 @@ the update never merges. relock-dependabot.yml runs this in two jobs:
       runs on the repository's solution. Every file that then differs is
       copied into <out-dir>, with manifest.json listing them.
 
-  push <in-dir>
+  push <in-dir> <head-ref> <head-sha>
       From the base branch's copy of this script, with the Repo Bot App's
-      token in GH_TOKEN and GITHUB_REPOSITORY, HEAD_REF and HEAD_SHA set.
-      Accepts only files that already exist at HEAD_SHA and are lock files
-      (a packages.lock.json, or a requirement file whose second line is a
-      `uv pip compile` command), and commits them onto HEAD_SHA through the
-      API, moving HEAD_REF only if it has not moved since. It never runs the
-      pull request's code.
+      token in GH_TOKEN. Accepts only files that already exist at <head-sha>
+      and are lock files (a packages.lock.json, or a requirement file whose
+      second line is a `uv pip compile` command), and commits them onto
+      <head-sha> through the API, moving <head-ref> only if it has not moved
+      since. It never runs the pull request's code.
 """
 import base64
 import json
-import os
 import re
 import shlex
 import shutil
@@ -104,8 +102,9 @@ def relock(base, out):
 
 def api(method, url, body=None):
     """One call to the GitHub REST API for this repository, through the gh
-    CLI the runner provides, which reads the App's token from GH_TOKEN."""
-    command = ["gh", "api", "--method", method, f"repos/{os.environ['GITHUB_REPOSITORY']}/{url}"]
+    CLI the runner provides. gh reads the App's token from GH_TOKEN and
+    fills {owner}/{repo} from the checkout's remote."""
+    command = ["gh", "api", "--method", method, "repos/{owner}/{repo}/" + url]
     if body is not None:
         command += ["--input", "-"]
     result = subprocess.run(command, input=None if body is None else json.dumps(body),
@@ -115,9 +114,11 @@ def api(method, url, body=None):
     return json.loads(result.stdout or "null")
 
 
-def push(src):
+def push(src, head_ref, head_sha):
+    if not re.fullmatch(r"[0-9a-f]{40}", head_sha) or not re.fullmatch(r"[\w./-]+", head_ref) \
+            or ".." in head_ref:
+        sys.exit("refused: the head branch or commit is not well formed")
     src = Path(src)
-    head_ref, head_sha = os.environ["HEAD_REF"], os.environ["HEAD_SHA"]
     paths = json.loads((src / "manifest.json").read_text(encoding="utf-8"))
     tree = []
     for path in paths:
@@ -144,7 +145,7 @@ def push(src):
 if __name__ == "__main__":
     if sys.argv[1:2] == ["relock"] and len(sys.argv) == 4:
         relock(sys.argv[2], sys.argv[3])
-    elif sys.argv[1:2] == ["push"] and len(sys.argv) == 3:
-        push(sys.argv[2])
+    elif sys.argv[1:2] == ["push"] and len(sys.argv) == 5:
+        push(sys.argv[2], sys.argv[3], sys.argv[4])
     else:
         sys.exit(__doc__)

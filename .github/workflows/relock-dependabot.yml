@@ -110,4 +110,4 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: python3 .github/relock.py push "$RUNNER_TEMP/relock"
+        run: python3 .github/relock.py push "$RUNNER_TEMP/relock" "$HEAD_REF" "$HEAD_SHA"
