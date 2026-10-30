@@ -127,8 +127,8 @@ package's users; the test, fuzz and runtime locks pin them exactly.
 ClamAV's signatures change too often to pin, so freshclam fetches and
 verifies them on every run.
 
-Dependabot proposes updates to the GitHub Actions, the Semgrep and ClamAV
-images, the development tools in `pyproject.toml` and the hash-locked
+Dependabot proposes updates to the GitHub Actions, the ClamAV
+image, the development tools in `pyproject.toml` and the hash-locked
 tools in `.github/requirements` once a version is a week old, and at once
 for a security advisory. The Update YARA rules workflow proposes new YARA
 pins in `.github/security/yara.json` each week. A minor or patch update,
