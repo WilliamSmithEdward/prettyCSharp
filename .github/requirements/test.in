@@ -10,7 +10,7 @@
 # Dependabot proposes each new release.
 pytest==9.2.0
 ruff==0.17.3
-mypy==2.4.0
+mypy==2.4.1
 tree-sitter==0.26.0
 tree-sitter-c-sharp==0.23.5
 defusedxml==0.7.1
