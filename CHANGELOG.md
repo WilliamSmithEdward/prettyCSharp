@@ -2,7 +2,7 @@
 
 Each release's section becomes the body of its GitHub release.
 
-## [Unreleased]
+## [1.1.11] - 2026-11-07
 
 - A multiplication of two names used as an argument, indexer argument or
   tuple element, such as `F(i * j)`, keeps its spaces. tree-sitter reads
