@@ -2,6 +2,14 @@
 
 Each release's section becomes the body of its GitHub release.
 
+## [Unreleased]
+
+- A multiplication of two names used as an argument, indexer argument or
+  tuple element, such as `F(i * j)`, keeps its spaces. tree-sitter reads
+  that shape as a pointer declaration, and it was printed as `F(i* j)`.
+  It is now printed as a multiplication everywhere but after `out` and on
+  the left of a deconstruction, the only places C# can declare there.
+
 ## [1.1.10] - 2026-10-18
 
 - A tuple argument ending in a multiline block lambda closes the tuple and
