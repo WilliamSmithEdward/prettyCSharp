@@ -867,6 +867,24 @@ def test_obvious_parentheses_are_removed_and_clarifying_ones_kept() -> None:
     )
 
 
+def test_multiplication_parsed_as_a_pointer_declaration_stays_a_multiplication() -> None:
+    # tree-sitter reads a `name * name` argument or tuple element as a pointer
+    # declaration; only after `out` or in a deconstruction can it be one.
+    source = (
+        "F(i * j);\n"
+        "H(arg: i * j);\n"
+        "G(x.Y * j);\n"
+        "var n = new R(i * j);\n"
+        "var e = v[i * j];\n"
+        "var t = (i * j, 0);\n"
+        "var z = ((i * j, 1), 2);\n"
+        "Parse(s, out int* q);\n"
+        "(int* c, int d) = (null, 2);\n"
+        "((int* h, int m), int o) = ((null, 1), 2);\n"
+    )
+    assert fmt(source) == source
+
+
 def test_nullable_array_types_stay_tight() -> None:
     source = (
         "void M(params object?[]? values) { }\n"

@@ -898,6 +898,13 @@ class Expressions(Core):
         return self.spaced(node.children)
 
     def p_declaration_expression(self, node: Node) -> Doc:
+        pointer = node.children[0] if len(node.children) == 2 else None
+        if pointer is not None and pointer.type == "pointer_type" and len(pointer.children) == 2 and not _declares(node):
+            # tree-sitter reads `i * j` as an argument as a declaration of a
+            # pointer `j`; C# declares there only after `out` or on the left
+            # of a deconstruction, so anywhere else it is a multiplication.
+            element, star = pointer.children
+            return [self.print(element), " ", self.tok(star), " ", self.print(node.children[1])]
         return self.spaced(node.children)
 
     def p_as_expression(self, node: Node) -> Doc:
@@ -1170,6 +1177,31 @@ def _simple_value(node: Node) -> bool:
     if node.type in ("member_access_expression", "qualified_name"):
         return all(c.type in ("identifier", "member_access_expression", "qualified_name") or c.text == "." for c in node.children)
     return False
+
+
+def _declares(node: Node) -> bool:
+    """Whether a declaration expression can declare where it stands: after
+    `out`, or in a tuple being deconstructed into."""
+    argument = node.parent
+    if argument is None or argument.type != "argument":
+        return True
+    if any(c.text == "out" for c in argument.children):
+        return True
+    tuple_node = argument.parent
+    if tuple_node is None or tuple_node.type != "tuple_expression":
+        return False
+    # Nested tuples deconstruct too: ((int a, int b), int c) = ...
+    while tuple_node.parent is not None and tuple_node.parent.type == "argument":
+        outer = tuple_node.parent.parent
+        if outer is None or outer.type != "tuple_expression":
+            break
+        tuple_node = outer
+    holder = tuple_node.parent
+    if holder is None:
+        return False
+    if holder.type == "assignment_expression":
+        return bool(holder.children) and holder.children[0] is tuple_node
+    return holder.type == "foreach_statement" and holder.child("left") is tuple_node
 
 
 def _element_value(node: Node) -> Node:
