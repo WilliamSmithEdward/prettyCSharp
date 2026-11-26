@@ -2,6 +2,15 @@
 
 Each release's section becomes the body of its GitHub release.
 
+## [Unreleased]
+
+- The C# grammar is capped below 0.24: `tree-sitter-c-sharp>=0.23.1,<0.24`.
+  Version 0.24.0 cannot parse a statement that starts with a `$` string
+  after an `if`, such as `if (a) { return; } $"a {x}".Debug();`, so a
+  fresh install refused valid files with a syntax error. A test now covers
+  that case, so a later grammar release is checked before the cap is
+  raised.
+
 ## [1.1.11] - 2026-11-07
 
 - A multiplication of two names used as an argument, indexer argument or

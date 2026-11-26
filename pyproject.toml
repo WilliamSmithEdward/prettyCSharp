@@ -31,10 +31,12 @@ classifiers = [
 # supported Python), defusedxml (PSF) to read project files safely, and tomli
 # (MIT) to read settings on Python 3.10, which has no tomllib. Ranges here, for
 # the people who install the package; .github/requirements/runtime.txt pins
-# what a fresh install gets today, for the dependency audit.
+# what a fresh install gets today, for the dependency audit. The grammar stops
+# below 0.24: 0.24.0 cannot parse a `$"..."` statement after an `if` (#74).
+# Raise the cap once a release passes tests/test_grammar_compatibility.py.
 dependencies = [
     "tree-sitter>=0.25",
-    "tree-sitter-c-sharp>=0.23.1",
+    "tree-sitter-c-sharp>=0.23.1,<0.24",
     "defusedxml>=0.7.1",
     "tomli>=1.1.0; python_version < '3.11'",
 ]

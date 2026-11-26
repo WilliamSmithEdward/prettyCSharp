@@ -11,7 +11,9 @@
 #
 # A release waits a week before it is proposed, long enough for most
 # hijacked or broken releases to be found and pulled first. Security
-# updates do not wait.
+# updates do not wait. tree-sitter-c-sharp 0.24.0 is skipped: it cannot
+# parse a `$"..."` statement after an `if` (#74). A later release is still
+# proposed, and tests/test_grammar_compatibility.py decides whether it lands.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -34,6 +36,9 @@ updates:
     cooldown:
       default-days: 7
       exclude: [pyopenvba, pyofficeeditor, pyprettyvba, vba-reference, pyvbaanalysis, pyvbaharness, xlide-mcp]
+    ignore:
+      - dependency-name: tree-sitter-c-sharp
+        versions: ["0.24.0"]
     versioning-strategy: increase-if-necessary
     commit-message:
       prefix: deps
@@ -51,6 +56,9 @@ updates:
     cooldown:
       default-days: 7
       exclude: [pyopenvba, pyofficeeditor, pyprettyvba, vba-reference, pyvbaanalysis, pyvbaharness, xlide-mcp]
+    ignore:
+      - dependency-name: tree-sitter-c-sharp
+        versions: ["0.24.0"]
     commit-message:
       prefix: ci
     groups:
