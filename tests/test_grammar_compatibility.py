@@ -78,6 +78,19 @@ def test_non_ascii_and_crlf_positions_are_preserved() -> None:
     assert fmt(output) == output
 
 
+@pytest.mark.parametrize(
+    "string",
+    ['$"a {x} b"', '$"a"', '$@"a {x}"', '$"""a {x}"""'],
+)
+@pytest.mark.parametrize("statement", ["if (a) { return; }", "if (a) { }", "if (a) return;"])
+def test_interpolated_string_statement_after_an_if_parses(statement: str, string: str) -> None:
+    # tree-sitter-c-sharp 0.24.0 reads the `$` here as an error (issue #74).
+    source = f"class C\n{{\n    void M()\n    {{\n        {statement}\n\n        {string}.Debug();\n    }}\n}}\n"
+    output = fmt(source)
+    assert f"        {string}.Debug();\n" in output
+    assert fmt(output) == output
+
+
 def test_nullable_types_and_ternary_collections_are_not_conditional_accesses() -> None:
     check(
         "required=1;string?[] values=ok?[1]:[2];a?.B=new string?[0];",
