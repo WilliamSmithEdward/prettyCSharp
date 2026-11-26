@@ -2,7 +2,7 @@
 
 Each release's section becomes the body of its GitHub release.
 
-## [Unreleased]
+## [1.1.12] - 2026-11-25
 
 - The C# grammar is capped below 0.24: `tree-sitter-c-sharp>=0.23.1,<0.24`.
   Version 0.24.0 cannot parse a statement that starts with a `$` string
